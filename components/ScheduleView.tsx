@@ -40,7 +40,6 @@ import {
   criarCultoExtra,
   gerarEscala,
   gerarOutraEscala,
-  pessoasDoItem,
   unificarItens,
   validarEscala,
 } from "@/lib/scheduleGenerator";
@@ -653,7 +652,7 @@ export function ScheduleView({
                         <div className="grid sm:grid-cols-2 gap-3 no-print">
                           {instrumentosEfetivos.map((inst) => {
                             const slots = item.escalacao.atribuicoes[inst.id] ?? [];
-                            const usadosNoItem = new Set(pessoasDoItem(item.escalacao));
+                            const usadosNoInstrumento = new Set(slots);
                             return (
                               <div key={inst.id}>
                                 <label className="text-xs font-medium mb-1 flex items-center gap-1 text-[hsl(var(--muted))]">
@@ -673,7 +672,8 @@ export function ScheduleView({
                                         <option value="">— ninguém —</option>
                                         {candidatosPorFuncao(inst.id)
                                           .filter(
-                                            (p) => p.id === valor || !usadosNoItem.has(p.id)
+                                            (p) =>
+                                              p.id === valor || !usadosNoInstrumento.has(p.id)
                                           )
                                           .map((p) => (
                                             <option key={p.id} value={p.id}>

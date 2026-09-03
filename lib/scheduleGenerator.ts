@@ -296,15 +296,24 @@ export function validarEscala(
         }
       });
 
-    const vistos = new Set<string>();
-    pessoasDoItem(escalacao).forEach((id) => {
-      if (vistos.has(id)) {
-        alertas.push({
-          mensagem: `⚠ ${nomeById(id)} aparece em mais de uma função em ${item.rotulo}.`,
-          nivel: "aviso",
-        });
-      }
-      vistos.add(id);
+    Object.entries(escalacao.atribuicoes).forEach(([instId, ids]) => {
+      const vistosNaFuncao = new Set<string>();
+      (ids ?? []).forEach((id) => {
+        if (!id) return;
+        if (vistosNaFuncao.has(id)) {
+          const inst = instrumentos.find((i) => i.id === instId);
+          alertas.push({
+            mensagem: `⚠ ${nomeById(id)} está repetido em ${
+              inst?.nome.toLowerCase() ?? instId
+            } em ${item.rotulo}.`,
+            nivel: "aviso",
+          });
+        }
+        vistosNaFuncao.add(id);
+      });
+    });
+
+    new Set(pessoasDoItem(escalacao)).forEach((id) => {
       contagemPorPessoa[id] = (contagemPorPessoa[id] ?? 0) + 1;
     });
   });
