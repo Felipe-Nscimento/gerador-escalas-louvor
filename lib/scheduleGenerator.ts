@@ -121,7 +121,7 @@ function construirEstadoInicial(
   escalasOrdenadas.forEach((escala) => {
     const itens = unificarItens(escala.domingos, escala.cultosExtras ?? []);
     itens.forEach((item) => {
-      pessoasDoItem(item.escalacao).forEach((id) => {
+      new Set(pessoasDoItem(item.escalacao)).forEach((id) => {
         if (scoreMap[id] !== undefined) scoreMap[id] += 1;
       });
     });
@@ -225,8 +225,7 @@ export function gerarEscala(
       }
     }
 
-    Object.values(atribuicoes)
-      .flat()
+    new Set(Object.values(atribuicoes).flat())
       .forEach((id) => marcarEscolha(estado, id));
 
     return {
@@ -342,7 +341,7 @@ export function calcularEstatisticas(
 
   const itens = unificarItens(domingos, cultosExtras);
   itens.forEach((item) => {
-    pessoasDoItem(item.escalacao).forEach((id) => {
+    new Set(pessoasDoItem(item.escalacao)).forEach((id) => {
       contagem[id] = (contagem[id] ?? 0) + 1;
     });
   });
