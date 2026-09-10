@@ -20,6 +20,7 @@ import {
   Undo2,
   Undo,
   CloudOff,
+  UserRound,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent } from "./ui/Card";
@@ -51,6 +52,36 @@ import {
   EscalaRemota,
 } from "@/lib/escalasRemoto";
 import { useAuth } from "@/lib/useAuth";
+
+/** Iniciais do nome, para o avatar placeholder (o projeto não tem foto cadastrada). */
+function iniciaisDoNome(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function AvatarPlaceholder({ nome, vazio }: { nome: string; vazio?: boolean }) {
+  if (vazio) {
+    return (
+      <span className="h-7 w-7 rounded-full bg-[hsl(var(--border))]/60 flex items-center justify-center shrink-0">
+        <UserRound className="h-3.5 w-3.5 text-[hsl(var(--muted))]" />
+      </span>
+    );
+  }
+  return (
+    <span className="h-7 w-7 rounded-full bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] flex items-center justify-center text-[10px] font-semibold shrink-0">
+      {iniciaisDoNome(nome)}
+    </span>
+  );
+}
+
+/** Cor suave por grupo de função (vocal x instrumento), sem depender de nenhum campo novo no cadastro. */
+function corDaFuncao(nomeInstrumento: string): string {
+  const n = nomeInstrumento.toLowerCase();
+  const ehVoz = n.includes("voz") || n.includes("vocal") || n.includes("backing");
+  return ehVoz ? "bg-emerald-50 dark:bg-emerald-500/10" : "bg-violet-50 dark:bg-violet-500/10";
+}
 
 interface Props {
   integrantes: Integrante[];
@@ -605,40 +636,27 @@ export function ScheduleView({
             <h1 className="hidden print:block text-xl font-bold mb-4">
               Escala do Grupo de Louvor – {MESES[config.mes - 1]}/{config.ano}
             </h1>
-            {listaUnificada.map((item) => {
-              const data = new Date(item.data);
-              const ehExtra = !item.rotulo.startsWith("Domingo");
-              return (
-                <Card key={item.id}>
-                  <CardContent className="pt-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium">
-                        {data.toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "2-digit",
-                        })}{" "}
-                        {ehExtra
-                          ? `— ${item.rotulo} (${nomeDiaSemana(data)})`
-                          : "(Domingo)"}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        {item.escalacao.solo && (
-                          <span className="text-xs rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-2.5 py-0.5">
-                            Solo
-                          </span>
-                        )}
-                        {ehExtra && !bloqueado && (
-                          <button
-                            onClick={() => removerCultoExtra(item.id)}
-                            className="p-1 rounded-lg hover:bg-red-500/10 text-red-500 no-print"
-                            aria-label="Remover culto extra"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
 
+            {/* Layout usado só na impressão/PDF — inalterado, um bloco por dia */}
+            <div className="hidden print:block space-y-3">
+              {listaUnificada.map((item) => {
+                const data = new Date(item.data);
+                const ehExtra = !item.rotulo.startsWith("Domingo");
+                return (
+                  <div
+                    key={item.id}
+                    className="border border-[hsl(var(--border))] rounded-xl p-4"
+                  >
+                    <p className="font-medium mb-1">
+                      {data.toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                      })}{" "}
+                      {ehExtra
+                        ? `— ${item.rotulo} (${nomeDiaSemana(data)})`
+                        : "(Domingo)"}
+                      {item.escalacao.solo && " · Solo"}
+                    </p>
                     {item.escalacao.solo ? (
                       <p className="text-sm">
                         🎤🎸{" "}
@@ -648,80 +666,190 @@ export function ScheduleView({
                         (voz e violão, sozinho)
                       </p>
                     ) : (
-                      <>
-                        <div className="grid sm:grid-cols-2 gap-3 no-print">
-                          {instrumentosEfetivos.map((inst) => {
-                            const slots = item.escalacao.atribuicoes[inst.id] ?? [];
-                            const usadosNoInstrumento = new Set(slots);
-                            return (
-                              <div key={inst.id}>
-                                <label className="text-xs font-medium mb-1 flex items-center gap-1 text-[hsl(var(--muted))]">
-                                  {inst.emoji} {inst.nome}
-                                  {inst.obrigatorio && slots.length === 0 && " (ninguém)"}
-                                </label>
+                      <div className="text-sm space-y-0.5">
+                        {instrumentosEfetivos.map((inst) =>
+                          (item.escalacao.atribuicoes[inst.id] ?? []).map((id) => (
+                            <p key={`${inst.id}-${id}`}>
+                              {inst.emoji}{" "}
+                              {integrantesEfetivos.find((i) => i.id === id)?.nome}
+                            </p>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Tabela interativa (tela): colunas = datas, linhas = funções */}
+            <div className="no-print rounded-2xl border border-[hsl(var(--border))] overflow-hidden">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] text-xs text-[hsl(var(--muted))]">
+                {(
+                  [
+                    ["rascunho", "bg-slate-400"],
+                    ["aguardando_aprovacao", "bg-amber-400"],
+                    ["devolvida", "bg-red-400"],
+                    ["aprovada", "bg-emerald-500"],
+                    ["publicada", "bg-blue-400"],
+                  ] as const
+                ).map(([chave, cor]) => (
+                  <span key={chave} className="flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${cor}`} />
+                    {STATUS_LABEL[chave]}
+                  </span>
+                ))}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className="sticky left-0 z-20 bg-[hsl(var(--card))] text-left px-4 py-3 min-w-[140px] border-b border-r border-[hsl(var(--border))]">
+                        Funções
+                      </th>
+                      {listaUnificada.map((item) => {
+                        const data = new Date(item.data);
+                        const ehExtra = !item.rotulo.startsWith("Domingo");
+                        return (
+                          <th
+                            key={item.id}
+                            className="px-4 py-3 min-w-[170px] text-left align-top border-b border-[hsl(var(--border))] bg-[hsl(var(--primary))]/5"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-semibold text-[hsl(var(--primary))] whitespace-nowrap">
+                                  {nomeDiaSemana(data)},{" "}
+                                  {data.toLocaleDateString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                  })}
+                                </p>
+                                <p className="text-xs font-normal text-[hsl(var(--muted))]">
+                                  {ehExtra ? item.rotulo : "Culto domingo"}
+                                  {item.escalacao.solo && " · Solo"}
+                                </p>
+                              </div>
+                              {ehExtra && !bloqueado && (
+                                <button
+                                  onClick={() => removerCultoExtra(item.id)}
+                                  className="p-1 rounded-lg hover:bg-red-500/10 text-red-500 shrink-0"
+                                  aria-label="Remover culto extra"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {instrumentosEfetivos.map((inst, rowIdx) => (
+                      <tr
+                        key={inst.id}
+                        className={
+                          rowIdx % 2 === 0
+                            ? "bg-[hsl(var(--card))]"
+                            : "bg-[hsl(var(--background))]"
+                        }
+                      >
+                        <td
+                          className={`sticky left-0 z-10 px-4 py-3 font-medium align-top border-r border-b border-[hsl(var(--border))] ${corDaFuncao(
+                            inst.nome
+                          )}`}
+                        >
+                          <span className="flex items-center gap-1.5 whitespace-nowrap">
+                            {inst.emoji} {inst.nome}
+                          </span>
+                        </td>
+                        {listaUnificada.map((item) => {
+                          const solo = item.escalacao.solo;
+                          const slots = item.escalacao.atribuicoes[inst.id] ?? [];
+                          const usadosNoInstrumento = new Set(slots);
+                          return (
+                            <td
+                              key={item.id}
+                              className="px-3 py-2.5 align-top border-b border-[hsl(var(--border))] min-w-[170px]"
+                            >
+                              {solo && slots.length === 0 ? (
+                                <span className="text-xs text-[hsl(var(--muted))]">—</span>
+                              ) : (
                                 <div className="space-y-1.5">
-                                  {slots.map((valor, idx) => (
-                                    <div key={idx} className="flex gap-1.5">
-                                      <Select
-                                        value={valor}
-                                        disabled={bloqueado}
-                                        onChange={(e) =>
-                                          setSlot(item.id, inst.id, idx, e.target.value)
-                                        }
-                                      >
-                                        <option value="">— ninguém —</option>
-                                        {candidatosPorFuncao(inst.id)
-                                          .filter(
-                                            (p) =>
-                                              p.id === valor || !usadosNoInstrumento.has(p.id)
-                                          )
-                                          .map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                              {p.nome}
-                                            </option>
-                                          ))}
-                                      </Select>
-                                      {!bloqueado && (
-                                        <button
-                                          onClick={() => removeSlot(item.id, inst.id, idx)}
-                                          className="p-2 rounded-xl hover:bg-red-500/10 text-red-500 shrink-0"
-                                          aria-label="Remover"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  ))}
-                                  {!bloqueado && (
+                                  {slots.length === 0 && (
                                     <button
                                       onClick={() => addSlot(item.id, inst.id)}
-                                      className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                                      disabled={bloqueado}
+                                      className="w-full flex items-center gap-2 rounded-xl border border-dashed border-[hsl(var(--border))] px-2.5 py-1.5 text-left hover:bg-[hsl(var(--border))]/30 disabled:opacity-50 disabled:pointer-events-none"
                                     >
-                                      <Plus className="h-3 w-3" /> adicionar {inst.nome.toLowerCase()}
+                                      <AvatarPlaceholder nome="" vazio />
+                                      <span className="text-xs text-[hsl(var(--muted))]">
+                                        Sem voluntário
+                                      </span>
+                                    </button>
+                                  )}
+                                  {slots.map((valor, idx) => {
+                                    const pessoa = integrantesEfetivos.find(
+                                      (i) => i.id === valor
+                                    );
+                                    return (
+                                      <div key={idx} className="flex items-center gap-1.5">
+                                        <AvatarPlaceholder
+                                          nome={pessoa?.nome ?? ""}
+                                          vazio={!valor}
+                                        />
+                                        <Select
+                                          value={valor}
+                                          disabled={bloqueado}
+                                          onChange={(e) =>
+                                            setSlot(item.id, inst.id, idx, e.target.value)
+                                          }
+                                          className="text-xs py-1.5 pr-7"
+                                        >
+                                          <option value="">— ninguém —</option>
+                                          {candidatosPorFuncao(inst.id)
+                                            .filter(
+                                              (p) =>
+                                                p.id === valor ||
+                                                !usadosNoInstrumento.has(p.id)
+                                            )
+                                            .map((p) => (
+                                              <option key={p.id} value={p.id}>
+                                                {p.nome}
+                                              </option>
+                                            ))}
+                                        </Select>
+                                        {!bloqueado && (
+                                          <button
+                                            onClick={() => removeSlot(item.id, inst.id, idx)}
+                                            className="p-1 rounded-lg hover:bg-red-500/10 text-red-500 shrink-0"
+                                            aria-label="Remover"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  {!bloqueado && slots.length > 0 && (
+                                    <button
+                                      onClick={() => addSlot(item.id, inst.id)}
+                                      className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1 pl-1"
+                                    >
+                                      <Plus className="h-3 w-3" /> adicionar
                                     </button>
                                   )}
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="hidden print:block text-sm space-y-0.5">
-                          {instrumentosEfetivos.map((inst) =>
-                            (item.escalacao.atribuicoes[inst.id] ?? []).map((id) => (
-                              <p key={`${inst.id}-${id}`}>
-                                {inst.emoji}{" "}
-                                {integrantesEfetivos.find((i) => i.id === id)?.nome}
-                              </p>
-                            ))
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           {/* Adicionar culto extra */}
