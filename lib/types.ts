@@ -14,10 +14,43 @@ export const INSTRUMENTOS_PADRAO: Instrumento[] = [
   { id: "baixo", nome: "Baixo", emoji: "🎸", obrigatorio: false },
 ];
 
+export type NivelExperiencia = "iniciante" | "intermediario" | "avancado";
+
+export const NIVEL_LABEL: Record<NivelExperiencia, string> = {
+  iniciante: "Iniciante",
+  intermediario: "Intermediário",
+  avancado: "Avançado",
+};
+
+/** Nível de experiência do integrante numa função/instrumento específico. */
+export interface NivelPorFuncao {
+  instrumentoId: string;
+  nivel: NivelExperiencia;
+}
+
+/**
+ * Estrutura preparada para o gerador de escalas usar futuramente — por
+ * enquanto só é armazenada, sem UI própria ainda (fica pra uma próxima etapa).
+ */
+export interface Disponibilidade {
+  diasDisponiveis: string[]; // dias da semana em que costuma poder servir
+  diasIndisponiveis: string[]; // datas específicas (ISO) em que não pode
+  observacao?: string;
+}
+
 export interface Integrante {
   id: string;
-  nome: string;
-  funcoes: string[]; // ids de Instrumento
+  nome: string; // nome completo — continua sendo o campo que a escala usa
+  funcoes: string[]; // ids de Instrumento — MESMO campo que a escala já usa, intocado
+  // --- Campos novos do cadastro, todos opcionais (não quebram dados antigos) ---
+  nomeExibicao?: string;
+  telefone?: string;
+  email?: string;
+  foto?: string; // data URL (já redimensionada/comprimida no upload)
+  ativo?: boolean; // undefined é tratado como ativo (compatível com integrantes já existentes)
+  niveis?: NivelPorFuncao[];
+  observacoesMusicais?: string;
+  disponibilidade?: Disponibilidade;
 }
 
 export interface Regras {

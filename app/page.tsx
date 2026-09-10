@@ -201,6 +201,7 @@ export default function Home() {
             integrantes={integrantes}
             setIntegrantes={setIntegrantes}
             instrumentos={instrumentos}
+            historico={historico}
           />
         )}
         {aba === "instrumentos" && (
