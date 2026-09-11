@@ -20,6 +20,9 @@ import { Checkbox } from "./ui/Checkbox";
 import { Input } from "./ui/Input";
 import { Select } from "./ui/Select";
 import {
+  DiaSemana,
+  DIAS_SEMANA_LABEL,
+  DisponibilidadeDia,
   EscalaSalva,
   Instrumento,
   Integrante,
@@ -127,6 +130,7 @@ export function MembersManager({
   const [funcoes, setFuncoes] = useState<string[]>([]);
   const [niveis, setNiveis] = useState<Record<string, NivelExperiencia>>({});
   const [observacoes, setObservacoes] = useState("");
+  const [dispo, setDispo] = useState<DisponibilidadeDia[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +149,7 @@ export function MembersManager({
     setFuncoes([]);
     setNiveis({});
     setObservacoes("");
+    setDispo([]);
     setErro(null);
   }
 
@@ -167,6 +172,7 @@ export function MembersManager({
       Object.fromEntries((pessoa.niveis ?? []).map((n) => [n.instrumentoId, n.nivel]))
     );
     setObservacoes(pessoa.observacoesMusicais ?? "");
+    setDispo(pessoa.disponibilidade?.dias ?? []);
     setErro(null);
     setMostrarForm(true);
   }
@@ -174,6 +180,74 @@ export function MembersManager({
   function alternarFuncao(id: string) {
     setFuncoes((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function definirStatusDia(dia: DiaSemana, status: "disponivel" | "indisponivel") {
+    setDispo((prev) => {
+      const semEsse = prev.filter((d) => d.dia !== dia);
+      if (status === "indisponivel") {
+        return [...semEsse, { dia, status, diaTodo: false, periodos: [] }];
+      }
+      const existente = prev.find((d) => d.dia === dia);
+      return [
+        ...semEsse,
+        existente && existente.status === "disponivel"
+          ? existente
+          : { dia, status: "disponivel" as const, diaTodo: true, periodos: [] },
+      ];
+    });
+  }
+
+  function marcarNaoInformado(dia: DiaSemana) {
+    setDispo((prev) => prev.filter((d) => d.dia !== dia));
+  }
+
+  function alternarDiaTodo(dia: DiaSemana) {
+    setDispo((prev) =>
+      prev.map((d) => {
+        if (d.dia !== dia) return d;
+        const diaTodo = !d.diaTodo;
+        return {
+          ...d,
+          diaTodo,
+          periodos: diaTodo ? [] : d.periodos.length ? d.periodos : [{ inicio: "", fim: "" }],
+        };
+      })
+    );
+  }
+
+  function adicionarPeriodo(dia: DiaSemana) {
+    setDispo((prev) =>
+      prev.map((d) =>
+        d.dia === dia ? { ...d, periodos: [...d.periodos, { inicio: "", fim: "" }] } : d
+      )
+    );
+  }
+
+  function removerPeriodo(dia: DiaSemana, idx: number) {
+    setDispo((prev) =>
+      prev.map((d) =>
+        d.dia === dia ? { ...d, periodos: d.periodos.filter((_, i) => i !== idx) } : d
+      )
+    );
+  }
+
+  function atualizarPeriodo(
+    dia: DiaSemana,
+    idx: number,
+    campo: "inicio" | "fim",
+    valor: string
+  ) {
+    setDispo((prev) =>
+      prev.map((d) =>
+        d.dia === dia
+          ? {
+              ...d,
+              periodos: d.periodos.map((p, i) => (i === idx ? { ...p, [campo]: valor } : p)),
+            }
+          : d
+      )
     );
   }
 
@@ -206,6 +280,21 @@ export function MembersManager({
     if (funcoes.length === 0) {
       return "Selecione ao menos uma função ou instrumento.";
     }
+    for (const d of dispo) {
+      if (d.status === "disponivel" && !d.diaTodo) {
+        if (d.periodos.length === 0) {
+          return `Informe um horário para ${DIAS_SEMANA_LABEL[d.dia]} ou marque "Dia todo".`;
+        }
+        for (const p of d.periodos) {
+          if (!p.inicio || !p.fim) {
+            return `Preencha os horários de ${DIAS_SEMANA_LABEL[d.dia]}.`;
+          }
+          if (p.inicio >= p.fim) {
+            return `Em ${DIAS_SEMANA_LABEL[d.dia]}, o horário inicial precisa ser antes do final.`;
+          }
+        }
+      }
+    }
     return null;
   }
 
@@ -229,6 +318,7 @@ export function MembersManager({
       funcoes,
       niveis: niveisArray,
       observacoesMusicais: observacoes.trim() || undefined,
+      disponibilidade: dispo.length > 0 ? { dias: dispo } : undefined,
     };
 
     if (editandoId) {
@@ -236,10 +326,7 @@ export function MembersManager({
         prev.map((p) => (p.id === editandoId ? { ...p, ...dados } : p))
       );
     } else {
-      setIntegrantes((prev) => [
-        ...prev,
-        { id: uid(), disponibilidade: undefined, ...dados },
-      ]);
+      setIntegrantes((prev) => [...prev, { id: uid(), ...dados }]);
     }
     setMostrarForm(false);
     setSalvo(true);
@@ -474,6 +561,126 @@ export function MembersManager({
               />
             </div>
 
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                Disponibilidade (opcional)
+              </label>
+              <p className="text-xs text-[hsl(var(--muted))] mb-2">
+                Quando este integrante normalmente pode servir. Ainda não é
+                usada na geração automática da escala.
+              </p>
+              <div className="space-y-2">
+                {([0, 1, 2, 3, 4, 5, 6] as DiaSemana[]).map((dia) => {
+                  const info = dispo.find((d) => d.dia === dia);
+                  const status = info?.status ?? "nao_informado";
+                  return (
+                    <div
+                      key={dia}
+                      className="rounded-xl border border-[hsl(var(--border))] px-3 py-2.5"
+                    >
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <span className="text-sm font-medium w-20 shrink-0">
+                          {DIAS_SEMANA_LABEL[dia]}
+                        </span>
+                        <div className="flex rounded-lg border border-[hsl(var(--border))] overflow-hidden text-xs">
+                          <button
+                            type="button"
+                            onClick={() => marcarNaoInformado(dia)}
+                            className={`px-2.5 py-1.5 whitespace-nowrap ${
+                              status === "nao_informado"
+                                ? "bg-[hsl(var(--border))]"
+                                : "hover:bg-[hsl(var(--border))]/40"
+                            }`}
+                          >
+                            ⚪ Não informado
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => definirStatusDia(dia, "disponivel")}
+                            className={`px-2.5 py-1.5 whitespace-nowrap ${
+                              status === "disponivel"
+                                ? "bg-emerald-500 text-white"
+                                : "hover:bg-[hsl(var(--border))]/40"
+                            }`}
+                          >
+                            🟢 Disponível
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => definirStatusDia(dia, "indisponivel")}
+                            className={`px-2.5 py-1.5 whitespace-nowrap ${
+                              status === "indisponivel"
+                                ? "bg-red-500 text-white"
+                                : "hover:bg-[hsl(var(--border))]/40"
+                            }`}
+                          >
+                            🔴 Indisponível
+                          </button>
+                        </div>
+                      </div>
+
+                      {status === "disponivel" && info && (
+                        <div className="mt-2.5 pl-1 space-y-2">
+                          <Checkbox
+                            label="Dia todo"
+                            checked={info.diaTodo}
+                            onChange={() => alternarDiaTodo(dia)}
+                          />
+                          {!info.diaTodo && (
+                            <div className="space-y-1.5">
+                              {info.periodos.map((p, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1.5 flex-wrap"
+                                >
+                                  <Input
+                                    type="time"
+                                    value={p.inicio}
+                                    onChange={(e) =>
+                                      atualizarPeriodo(dia, idx, "inicio", e.target.value)
+                                    }
+                                    className="w-auto"
+                                  />
+                                  <span className="text-xs text-[hsl(var(--muted))]">
+                                    até
+                                  </span>
+                                  <Input
+                                    type="time"
+                                    value={p.fim}
+                                    onChange={(e) =>
+                                      atualizarPeriodo(dia, idx, "fim", e.target.value)
+                                    }
+                                    className="w-auto"
+                                  />
+                                  {info.periodos.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removerPeriodo(dia, idx)}
+                                      className="p-1 rounded-lg hover:bg-red-500/10 text-red-500"
+                                      aria-label="Remover horário"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => adicionarPeriodo(dia)}
+                                className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                              >
+                                <Plus className="h-3 w-3" /> Adicionar horário
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {erro && <p className="text-sm text-red-500">{erro}</p>}
 
             <div className="flex gap-2">
@@ -651,10 +858,33 @@ export function MembersManager({
                         {p.observacoesMusicais}
                       </p>
                     )}
-                    <p>
-                      <span className="text-[hsl(var(--muted))]">Disponibilidade: </span>
-                      Ainda não configurada
-                    </p>
+                    <div>
+                      <p className="text-[hsl(var(--muted))] mb-1">Disponibilidade:</p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                        {([0, 1, 2, 3, 4, 5, 6] as DiaSemana[]).map((dia) => {
+                          const info = p.disponibilidade?.dias.find((d) => d.dia === dia);
+                          let texto: string;
+                          if (!info) texto = "⚪ Não informado";
+                          else if (info.status === "indisponivel") texto = "🔴 Indisponível";
+                          else if (info.diaTodo) texto = "🟢 Dia todo";
+                          else
+                            texto = `🟢 ${
+                              info.periodos
+                                .filter((per) => per.inicio && per.fim)
+                                .map((per) => `${per.inicio}–${per.fim}`)
+                                .join(", ") || "Disponível"
+                            }`;
+                          return (
+                            <p key={dia}>
+                              <span className="text-[hsl(var(--muted))]">
+                                {DIAS_SEMANA_LABEL[dia]}:{" "}
+                              </span>
+                              {texto}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <div>
                       <p className="text-[hsl(var(--muted))]">
                         Histórico de participação (escalas salvas neste aparelho):

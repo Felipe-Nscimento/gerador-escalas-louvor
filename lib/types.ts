@@ -28,13 +28,43 @@ export interface NivelPorFuncao {
   nivel: NivelExperiencia;
 }
 
+/** 0 = domingo ... 6 = sábado, igual ao Date.getDay(). */
+export type DiaSemana = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export const DIAS_SEMANA_LABEL: Record<DiaSemana, string> = {
+  0: "Domingo",
+  1: "Segunda",
+  2: "Terça",
+  3: "Quarta",
+  4: "Quinta",
+  5: "Sexta",
+  6: "Sábado",
+};
+
+export interface PeriodoHorario {
+  inicio: string; // "HH:MM"
+  fim: string; // "HH:MM"
+}
+
+/**
+ * Disponibilidade de um dia da semana. Um dia SEM entrada correspondente na
+ * lista `Disponibilidade.dias` significa "não informado" — esse terceiro
+ * estado (disponível / indisponível / não informado) é intencional, para não
+ * inventar disponibilidade de quem ainda não informou nada.
+ */
+export interface DisponibilidadeDia {
+  dia: DiaSemana;
+  status: "disponivel" | "indisponivel";
+  diaTodo: boolean; // quando true, `periodos` fica vazio e não é exigido horário
+  periodos: PeriodoHorario[]; // suporta mais de um período no mesmo dia
+}
+
 /**
  * Estrutura preparada para o gerador de escalas usar futuramente — por
  * enquanto só é armazenada, sem UI própria ainda (fica pra uma próxima etapa).
  */
 export interface Disponibilidade {
-  diasDisponiveis: string[]; // dias da semana em que costuma poder servir
-  diasIndisponiveis: string[]; // datas específicas (ISO) em que não pode
+  dias: DisponibilidadeDia[]; // só contém os dias já informados
   observacao?: string;
 }
 
