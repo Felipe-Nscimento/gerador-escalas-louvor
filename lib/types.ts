@@ -181,6 +181,8 @@ export interface PayloadEscala {
   escalacaoOriginal?: DomingoEscala[];
   integrantes: Integrante[];
   instrumentos: Instrumento[];
+  /** Quando este payload foi salvo pela última vez — só pra exibir "última atualização" e detectar mudanças concorrentes. Não requer coluna nova no Supabase, viaja dentro do jsonb. */
+  atualizadoEm?: string;
 }
 
 /** Rascunho em edição na aba Escala, persistido para sobreviver a um recarregamento da página. */

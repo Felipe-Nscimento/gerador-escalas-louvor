@@ -38,12 +38,13 @@ export async function listarEscalasRemotas(): Promise<EscalaRemota[]> {
 
 export async function criarEscalaRemota(
   payload: PayloadEscala,
-  userId: string
+  userId: string,
+  status: StatusEscala = "aguardando_aprovacao"
 ): Promise<EscalaRemota> {
   if (!supabase) throw new Error("Supabase não configurado.");
   const { data, error } = await supabase
     .from("escalas_aprovacao")
-    .insert({ created_by: userId, status: "aguardando_aprovacao", payload })
+    .insert({ created_by: userId, status, payload })
     .select()
     .single();
   if (error) throw error;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dices,
   RotateCcw,
@@ -170,6 +170,77 @@ export function ScheduleView({
     [domingos, cultosExtras]
   );
 
+  // ---------- Rastreio de "salvo" x "alterado" (pra indicador 🟢/🟡/🔴) ----------
+  const snapshotSalvoRef = useRef<string | null>(null);
+  const ultimoRemotoConhecidoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // toda vez que trocamos de escala (abrir outra, ou começar uma nova em
+    // branco), recalibramos as duas referências pro conteúdo atual — esse é
+    // o "ponto salvo" contra o qual comparamos futuras edições.
+    snapshotSalvoRef.current = domingos
+      ? JSON.stringify({ config, domingos, cultosExtras })
+      : null;
+    ultimoRemotoConhecidoRef.current = remotaVinculada
+      ? JSON.stringify({
+          domingos: remotaVinculada.payload.domingos,
+          cultosExtras: remotaVinculada.payload.cultosExtras,
+        })
+      : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escalaAtualId]);
+
+  const conteudoAtualSerializado = domingos
+    ? JSON.stringify({ config, domingos, cultosExtras })
+    : null;
+  const sujo =
+    !!escalaAtualId &&
+    snapshotSalvoRef.current !== null &&
+    conteudoAtualSerializado !== snapshotSalvoRef.current;
+
+  const remotoDivergente =
+    !!remotaVinculada &&
+    ultimoRemotoConhecidoRef.current !== null &&
+    ultimoRemotoConhecidoRef.current !==
+      JSON.stringify({
+        domingos: remotaVinculada.payload.domingos,
+        cultosExtras: remotaVinculada.payload.cultosExtras,
+      });
+  const conflitoRemoto = remotoDivergente && sujo;
+
+  const ultimaAtualizacaoTexto = remotaVinculada?.payload?.atualizadoEm
+    ? new Date(remotaVinculada.payload.atualizadoEm).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }) +
+      " " +
+      new Date(remotaVinculada.payload.atualizadoEm).toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  function usarVersaoRemota() {
+    if (!remotaVinculada) return;
+    const p = remotaVinculada.payload;
+    setConfig(() => p.config);
+    setRascunho((r) => ({
+      ...r,
+      domingos: p.domingos,
+      domingosOriginais: p.escalacaoOriginal ?? p.domingos,
+      cultosExtras: p.cultosExtras ?? [],
+    }));
+    ultimoRemotoConhecidoRef.current = JSON.stringify({
+      domingos: p.domingos,
+      cultosExtras: p.cultosExtras,
+    });
+    snapshotSalvoRef.current = JSON.stringify({
+      config: p.config,
+      domingos: p.domingos,
+      cultosExtras: p.cultosExtras,
+    });
+  }
+
   useEffect(() => {
     setErroEnvio(null);
   }, [escalaAtualId, statusAtual]);
@@ -331,6 +402,89 @@ export function ScheduleView({
     }
     setSalvo(true);
     setTimeout(() => setSalvo(false), 2000);
+  }
+
+  /**
+   * Garante uma cópia de segurança local sem duplicar o registro remoto: se
+   * já estamos vinculados a uma linha do Supabase, só espelha o conteúdo
+   * localmente com o MESMO id (sem mexer no vínculo), pra na próxima
+   * tentativa de salvar a gente atualizar a mesma linha em vez de criar
+   * outra. Se ainda não há vínculo remoto, usa o fluxo local de sempre.
+   */
+  function salvarComoBackupLocal(agora: string) {
+    if (!domingos) return;
+    if (origemRemota && escalaAtualId) {
+      setHistorico((prev) => {
+        const existente = prev.find((e) => e.id === escalaAtualId);
+        const escala: EscalaSalva = {
+          id: escalaAtualId,
+          criadoEm: existente?.criadoEm ?? agora,
+          atualizadoEm: agora,
+          config,
+          domingos,
+          cultosExtras,
+          escalacaoOriginal: domingosOriginais ?? undefined,
+          status: statusAtual ?? "rascunho",
+        };
+        return existente
+          ? prev.map((e) => (e.id === escalaAtualId ? escala : e))
+          : [...prev, escala];
+      });
+      return;
+    }
+    salvarLocal();
+  }
+
+  /**
+   * Ação principal do botão "Salvar": quando há Supabase configurado e
+   * login, a escala passa a ser persistida online desde o primeiro salvar
+   * (mesmo ainda em rascunho) — sem isso, uma edição podia ficar só no
+   * LocalStorage e não aparecer em outro aparelho. Atualiza a MESMA linha
+   * (nunca cria uma nova só porque foi editada) e preserva o status atual
+   * (rascunho/aguardando_aprovacao/devolvida/aprovada/publicada) — salvar
+   * conteúdo é uma ação independente de mudar o status de aprovação.
+   * Se o envio online falhar (sem internet, etc.), nada é perdido: a
+   * alteração fica garantida localmente para tentar de novo depois.
+   */
+  async function salvar() {
+    if (!domingos) return;
+    const podeOnline = auth.supabaseConfigurado && !!auth.userId;
+
+    if (!podeOnline) {
+      salvarLocal();
+      snapshotSalvoRef.current = JSON.stringify({ config, domingos, cultosExtras });
+      return;
+    }
+
+    const payloadBase = montarPayload();
+    if (!payloadBase) return;
+    const agora = new Date().toISOString();
+    const payload: PayloadEscala = { ...payloadBase, atualizadoEm: agora };
+
+    setEnviando(true);
+    setErroEnvio(null);
+    try {
+      if (origemRemota && escalaAtualId) {
+        await atualizarEscalaRemota(escalaAtualId, { payload });
+      } else {
+        const linha = await criarEscalaRemota(payload, auth.userId!, "rascunho");
+        if (escalaAtualId && !origemRemota) {
+          setHistorico((prev) => prev.filter((e) => e.id !== escalaAtualId));
+        }
+        setRascunho((r) => ({ ...r, escalaAtualId: linha.id, origemRemota: true }));
+      }
+      ultimoRemotoConhecidoRef.current = JSON.stringify({ domingos, cultosExtras });
+      snapshotSalvoRef.current = JSON.stringify({ config, domingos, cultosExtras });
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 2000);
+    } catch (e) {
+      setErroEnvio(
+        e instanceof Error ? e.message : "Não foi possível salvar online."
+      );
+      salvarComoBackupLocal(agora);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   function aprovarLocal() {
@@ -550,7 +704,9 @@ export function ScheduleView({
                         {!escalaAtualId && "Salve a escala para poder enviá-la."}
                         {escalaAtualId &&
                           statusAtual === "rascunho" &&
-                          "Ainda é só um rascunho local."}
+                          (origemRemota
+                            ? "Rascunho salvo online — acessível de qualquer aparelho."
+                            : "Ainda é só um rascunho local.")}
                         {escalaAtualId &&
                           statusAtual === "aguardando_aprovacao" &&
                           "Esperando o líder revisar."}
@@ -560,6 +716,30 @@ export function ScheduleView({
                         {escalaAtualId &&
                           statusAtual === "publicada" &&
                           "Já foi copiada e enviada."}
+                      </p>
+                    )}
+                    {escalaAtualId && (
+                      <p className="text-xs flex items-center gap-1.5 mt-1">
+                        {erroEnvio ? (
+                          <span className="text-red-500">
+                            🔴 Não foi possível salvar online — a alteração
+                            continua guardada neste aparelho.
+                          </span>
+                        ) : sujo ? (
+                          <span className="text-amber-500">
+                            🟡 Alterações não salvas
+                          </span>
+                        ) : origemRemota ? (
+                          <span className="text-emerald-500">
+                            🟢 Salvo online
+                            {ultimaAtualizacaoTexto &&
+                              ` · Última atualização: ${ultimaAtualizacaoTexto}`}
+                          </span>
+                        ) : (
+                          <span className="text-[hsl(var(--muted))]">
+                            💾 Salvo só neste aparelho
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>
@@ -586,7 +766,10 @@ export function ScheduleView({
                     statusAtual !== "publicada" && (
                       <Button size="sm" onClick={enviarParaLider} disabled={enviando}>
                         <Send className="h-3.5 w-3.5" />{" "}
-                        {origemRemota ? "Reenviar" : "Enviar para o líder"}
+                        {statusAtual === "aguardando_aprovacao" ||
+                        statusAtual === "devolvida"
+                          ? "Reenviar"
+                          : "Enviar para o líder"}
                       </Button>
                     )}
                   {origemRemota &&
@@ -624,6 +807,29 @@ export function ScheduleView({
               )}
             </CardContent>
           </Card>
+
+          {conflitoRemoto && (
+            <Card className="no-print border-amber-400/40">
+              <CardContent className="pt-5 space-y-2">
+                <p className="text-sm font-medium flex items-center gap-1.5 text-amber-500">
+                  <AlertTriangle className="h-4 w-4" /> Essa escala foi
+                  atualizada em outro aparelho
+                </p>
+                <p className="text-xs text-[hsl(var(--muted))]">
+                  Você também tem alterações aqui ainda não salvas. Escolha o
+                  que fazer antes de continuar editando:
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <Button size="sm" variant="secondary" onClick={usarVersaoRemota}>
+                    Usar versão mais recente
+                  </Button>
+                  <Button size="sm" onClick={salvar} disabled={enviando}>
+                    Manter minhas alterações e salvar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {bloqueado && (
             <div className="no-print flex items-center gap-2 text-xs text-[hsl(var(--muted))] px-1">
@@ -957,19 +1163,19 @@ export function ScheduleView({
                 </>
               )}
             </Button>
-            {!origemRemota && (
-              <Button onClick={salvarLocal} variant="secondary">
-                {salvo ? (
-                  <>
-                    <Check className="h-4 w-4" /> Salvo!
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" /> Salvar
-                  </>
-                )}
-              </Button>
-            )}
+            <Button onClick={salvar} variant="secondary" disabled={enviando}>
+              {enviando ? (
+                "Salvando..."
+              ) : salvo ? (
+                <>
+                  <Check className="h-4 w-4" /> Salvo!
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" /> Salvar
+                </>
+              )}
+            </Button>
             <Button onClick={exportarPDF} variant="secondary">
               <FileDown className="h-4 w-4" /> Exportar PDF
             </Button>
