@@ -60,11 +60,35 @@ export interface DisponibilidadeDia {
 }
 
 /**
+ * Uma exceção pontual numa DATA específica (ex: viagem, compromisso, culto
+ * especial). `data` fica em "YYYY-MM-DD" puro — nunca passa por `new Date()`
+ * pra armazenar, só pra exibir, evitando o bug clássico de fuso horário em
+ * que uma data BR "recua" um dia ao converter.
+ *
+ * Prioridade (só documentada aqui — o gerador ainda não lê nada disso):
+ * uma exceção em `excecoes` sempre vence o que estiver em `dias` para
+ * aquela data específica.
+ */
+export interface ExcecaoDisponibilidade {
+  id: string;
+  data: string; // "YYYY-MM-DD"
+  status: "disponivel" | "indisponivel";
+  diaTodo: boolean;
+  periodos: PeriodoHorario[];
+  observacao?: string;
+}
+
+/**
  * Estrutura preparada para o gerador de escalas usar futuramente — por
- * enquanto só é armazenada, sem UI própria ainda (fica pra uma próxima etapa).
+ * enquanto só é armazenada/editada, sem influenciar a geração ainda.
+ * `dias` = disponibilidade HABITUAL (padrão semanal). `excecoes` = datas
+ * específicas que, quando existirem, têm prioridade sobre `dias` para
+ * aquele dia (ex: normalmente disponível no domingo, mas indisponível só
+ * no dia 20/09 por viagem).
  */
 export interface Disponibilidade {
   dias: DisponibilidadeDia[]; // só contém os dias já informados
+  excecoes: ExcecaoDisponibilidade[]; // datas específicas — prioridade sobre `dias`
   observacao?: string;
 }
 

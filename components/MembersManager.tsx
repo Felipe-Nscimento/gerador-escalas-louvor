@@ -24,6 +24,7 @@ import {
   DIAS_SEMANA_LABEL,
   DisponibilidadeDia,
   EscalaSalva,
+  ExcecaoDisponibilidade,
   Instrumento,
   Integrante,
   NIVEL_LABEL,
@@ -34,6 +35,14 @@ import { pessoasDoItem, unificarItens } from "@/lib/scheduleGenerator";
 import { uid } from "@/lib/storage";
 import { useAuth } from "@/lib/useAuth";
 import { atualizarIntegranteRemoto, criarIntegranteRemoto } from "@/lib/integrantesRemoto";
+
+/** "YYYY-MM-DD" -> "DD/MM/AAAA", sem passar por Date (evita bug de fuso horário). */
+function formatarDataBR(iso: string): string {
+  const partes = iso.split("-");
+  if (partes.length !== 3) return iso;
+  const [ano, mes, dia] = partes;
+  return `${dia}/${mes}/${ano}`;
+}
 
 interface Props {
   integrantes: Integrante[];
@@ -136,6 +145,7 @@ export function MembersManager({
   const [niveis, setNiveis] = useState<Record<string, NivelExperiencia>>({});
   const [observacoes, setObservacoes] = useState("");
   const [dispo, setDispo] = useState<DisponibilidadeDia[]>([]);
+  const [excecoes, setExcecoes] = useState<ExcecaoDisponibilidade[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -155,6 +165,7 @@ export function MembersManager({
     setNiveis({});
     setObservacoes("");
     setDispo([]);
+    setExcecoes([]);
     setErro(null);
   }
 
@@ -178,6 +189,7 @@ export function MembersManager({
     );
     setObservacoes(pessoa.observacoesMusicais ?? "");
     setDispo(pessoa.disponibilidade?.dias ?? []);
+    setExcecoes(pessoa.disponibilidade?.excecoes ?? []);
     setErro(null);
     setMostrarForm(true);
   }
@@ -256,6 +268,93 @@ export function MembersManager({
     );
   }
 
+  // ---------- Exceções de disponibilidade (datas específicas) ----------
+
+  function adicionarExcecao() {
+    setExcecoes((prev) => [
+      ...prev,
+      {
+        id: uid(),
+        data: "",
+        status: "indisponivel",
+        diaTodo: true,
+        periodos: [],
+        observacao: "",
+      },
+    ]);
+  }
+
+  function removerExcecao(id: string) {
+    setExcecoes((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function atualizarExcecao(id: string, patch: Partial<ExcecaoDisponibilidade>) {
+    setExcecoes((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  }
+
+  function definirStatusExcecao(id: string, status: "disponivel" | "indisponivel") {
+    setExcecoes((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              status,
+              diaTodo: status === "indisponivel" ? true : e.diaTodo,
+              periodos: status === "indisponivel" ? [] : e.periodos,
+            }
+          : e
+      )
+    );
+  }
+
+  function alternarDiaTodoExcecao(id: string) {
+    setExcecoes((prev) =>
+      prev.map((e) => {
+        if (e.id !== id) return e;
+        const diaTodo = !e.diaTodo;
+        return {
+          ...e,
+          diaTodo,
+          periodos: diaTodo ? [] : e.periodos.length ? e.periodos : [{ inicio: "", fim: "" }],
+        };
+      })
+    );
+  }
+
+  function adicionarPeriodoExcecao(id: string) {
+    setExcecoes((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, periodos: [...e.periodos, { inicio: "", fim: "" }] } : e
+      )
+    );
+  }
+
+  function removerPeriodoExcecao(id: string, idx: number) {
+    setExcecoes((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, periodos: e.periodos.filter((_, i) => i !== idx) } : e
+      )
+    );
+  }
+
+  function atualizarPeriodoExcecao(
+    id: string,
+    idx: number,
+    campo: "inicio" | "fim",
+    valor: string
+  ) {
+    setExcecoes((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              periodos: e.periodos.map((p, i) => (i === idx ? { ...p, [campo]: valor } : p)),
+            }
+          : e
+      )
+    );
+  }
+
   async function selecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -300,6 +399,28 @@ export function MembersManager({
         }
       }
     }
+    for (const e of excecoes) {
+      if (!e.data) {
+        return "Preencha a data de cada exceção de disponibilidade (ou remova a que ficou em branco).";
+      }
+      if (e.status === "disponivel" && !e.diaTodo) {
+        if (e.periodos.length === 0) {
+          return `Informe um horário para a exceção de ${formatarDataBR(
+            e.data
+          )} ou marque "Dia todo".`;
+        }
+        for (const p of e.periodos) {
+          if (!p.inicio || !p.fim) {
+            return `Preencha os horários da exceção de ${formatarDataBR(e.data)}.`;
+          }
+          if (p.inicio >= p.fim) {
+            return `Na exceção de ${formatarDataBR(
+              e.data
+            )}, o horário inicial precisa ser antes do final.`;
+          }
+        }
+      }
+    }
     return null;
   }
 
@@ -326,7 +447,8 @@ export function MembersManager({
       funcoes,
       niveis: niveisArray,
       observacoesMusicais: observacoes.trim() || undefined,
-      disponibilidade: dispo.length > 0 ? { dias: dispo } : undefined,
+      disponibilidade:
+        dispo.length > 0 || excecoes.length > 0 ? { dias: dispo, excecoes } : undefined,
     };
     const idFinal = editandoId ?? uid();
     const integranteCompleto: Integrante = { id: idFinal, ...dados };
@@ -719,6 +841,156 @@ export function MembersManager({
               </div>
             </div>
 
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium block">
+                  Exceções de disponibilidade (opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={adicionarExcecao}
+                  className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Adicionar exceção
+                </button>
+              </div>
+              <p className="text-xs text-[hsl(var(--muted))] mb-2">
+                Para datas específicas em que este integrante foge da
+                disponibilidade habitual (viagem, compromisso, culto
+                especial...). Quando existir, a exceção tem prioridade sobre
+                a disponibilidade habitual naquela data.
+              </p>
+              {excecoes.length === 0 ? (
+                <p className="text-xs text-[hsl(var(--muted))]">
+                  Nenhuma exceção cadastrada.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {excecoes.map((exc) => (
+                    <div
+                      key={exc.id}
+                      className="rounded-xl border border-[hsl(var(--border))] px-3 py-2.5 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Input
+                          type="date"
+                          value={exc.data}
+                          onChange={(e) =>
+                            atualizarExcecao(exc.id, { data: e.target.value })
+                          }
+                          className="w-auto"
+                        />
+                        <div className="flex items-center gap-2">
+                          <div className="flex rounded-lg border border-[hsl(var(--border))] overflow-hidden text-xs">
+                            <button
+                              type="button"
+                              onClick={() => definirStatusExcecao(exc.id, "disponivel")}
+                              className={`px-2.5 py-1.5 whitespace-nowrap ${
+                                exc.status === "disponivel"
+                                  ? "bg-emerald-500 text-white"
+                                  : "hover:bg-[hsl(var(--border))]/40"
+                              }`}
+                            >
+                              🟢 Disponível
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => definirStatusExcecao(exc.id, "indisponivel")}
+                              className={`px-2.5 py-1.5 whitespace-nowrap ${
+                                exc.status === "indisponivel"
+                                  ? "bg-red-500 text-white"
+                                  : "hover:bg-[hsl(var(--border))]/40"
+                              }`}
+                            >
+                              🔴 Indisponível
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removerExcecao(exc.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
+                            aria-label="Remover exceção"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {exc.status === "disponivel" && (
+                        <div className="pl-1 space-y-2">
+                          <Checkbox
+                            label="Dia todo"
+                            checked={exc.diaTodo}
+                            onChange={() => alternarDiaTodoExcecao(exc.id)}
+                          />
+                          {!exc.diaTodo && (
+                            <div className="space-y-1.5">
+                              {exc.periodos.map((p, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-1.5 flex-wrap"
+                                >
+                                  <Input
+                                    type="time"
+                                    value={p.inicio}
+                                    onChange={(e) =>
+                                      atualizarPeriodoExcecao(
+                                        exc.id,
+                                        idx,
+                                        "inicio",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-auto"
+                                  />
+                                  <span className="text-xs text-[hsl(var(--muted))]">
+                                    até
+                                  </span>
+                                  <Input
+                                    type="time"
+                                    value={p.fim}
+                                    onChange={(e) =>
+                                      atualizarPeriodoExcecao(exc.id, idx, "fim", e.target.value)
+                                    }
+                                    className="w-auto"
+                                  />
+                                  {exc.periodos.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removerPeriodoExcecao(exc.id, idx)}
+                                      className="p-1 rounded-lg hover:bg-red-500/10 text-red-500"
+                                      aria-label="Remover horário"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => adicionarPeriodoExcecao(exc.id)}
+                                className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                              >
+                                <Plus className="h-3 w-3" /> Adicionar horário
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <Input
+                        value={exc.observacao ?? ""}
+                        onChange={(e) =>
+                          atualizarExcecao(exc.id, { observacao: e.target.value })
+                        }
+                        placeholder="Observação (opcional): viagem, compromisso..."
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {erro && <p className="text-sm text-red-500">{erro}</p>}
 
             <div className="flex gap-2">
@@ -927,6 +1199,41 @@ export function MembersManager({
                         })}
                       </div>
                     </div>
+                    {(p.disponibilidade?.excecoes?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-[hsl(var(--muted))] mb-1">
+                          Exceções de disponibilidade:
+                        </p>
+                        <ul className="space-y-0.5">
+                          {p.disponibilidade!.excecoes.map((exc) => {
+                            let texto: string;
+                            if (exc.status === "indisponivel") texto = "🔴 Indisponível";
+                            else if (exc.diaTodo) texto = "🟢 Dia todo";
+                            else
+                              texto = `🟢 ${
+                                exc.periodos
+                                  .filter((per) => per.inicio && per.fim)
+                                  .map((per) => `${per.inicio}–${per.fim}`)
+                                  .join(", ") || "Disponível"
+                              }`;
+                            return (
+                              <li key={exc.id}>
+                                <span className="text-[hsl(var(--muted))]">
+                                  {formatarDataBR(exc.data)}:{" "}
+                                </span>
+                                {texto}
+                                {exc.observacao && (
+                                  <span className="text-[hsl(var(--muted))]">
+                                    {" "}
+                                    — {exc.observacao}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    )}
                     <div>
                       <p className="text-[hsl(var(--muted))]">
                         Histórico de participação (escalas salvas neste aparelho):
