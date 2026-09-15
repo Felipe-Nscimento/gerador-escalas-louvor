@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Users,
   SlidersHorizontal,
@@ -28,6 +28,11 @@ import {
   EscalaRemota,
   listarEscalasRemotas,
 } from "@/lib/escalasRemoto";
+import {
+  assinarIntegrantesRemotos,
+  criarIntegranteRemoto,
+  listarIntegrantesRemotos,
+} from "@/lib/integrantesRemoto";
 import { MembersManager } from "@/components/MembersManager";
 import { InstrumentsManager } from "@/components/InstrumentsManager";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -91,6 +96,10 @@ export default function Home() {
 
   const auth = useAuth();
   const [remotas, setRemotas] = useState<EscalaRemota[]>([]);
+  const [integrantesRemotos, setIntegrantesRemotos] = useState<Integrante[]>([]);
+  const [integrantesRemotosCarregados, setIntegrantesRemotosCarregados] = useState(false);
+  const [migracaoPronta, setMigracaoPronta] = useState(false);
+  const migracaoFeitaRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", tema === "escuro");
@@ -114,6 +123,66 @@ export default function Home() {
     const cancelar = assinarEscalasRemotas(recarregarRemotas);
     return cancelar;
   }, [auth.logado, recarregarRemotas]);
+
+  const recarregarIntegrantesRemotos = useCallback(() => {
+    if (!auth.logado) return;
+    listarIntegrantesRemotos()
+      .then((lista) => {
+        setIntegrantesRemotos(lista);
+        setIntegrantesRemotosCarregados(true);
+      })
+      .catch(() => setIntegrantesRemotosCarregados(true));
+  }, [auth.logado]);
+
+  useEffect(() => {
+    if (!auth.logado) {
+      setIntegrantesRemotos([]);
+      setIntegrantesRemotosCarregados(false);
+      setMigracaoPronta(false);
+      migracaoFeitaRef.current = false;
+      return;
+    }
+    recarregarIntegrantesRemotos();
+    const cancelar = assinarIntegrantesRemotos(recarregarIntegrantesRemotos);
+    return cancelar;
+  }, [auth.logado, recarregarIntegrantesRemotos]);
+
+  // Migração controlada: roda uma vez por sessão logada. Só INSERE no
+  // Supabase os integrantes locais cujo id ainda não existe lá (nunca
+  // sobrescreve, nunca gera id novo) — preserva o id original pra escalas
+  // antigas (locais ou já salvas no Supabase) continuarem funcionando.
+  useEffect(() => {
+    if (
+      !auth.logado ||
+      !auth.userId ||
+      !integrantesRemotosCarregados ||
+      migracaoFeitaRef.current
+    ) {
+      return;
+    }
+    migracaoFeitaRef.current = true;
+    const idsRemotos = new Set(integrantesRemotos.map((i) => i.id));
+    const faltantes = integrantes.filter((i) => !idsRemotos.has(i.id));
+    if (faltantes.length === 0) {
+      setMigracaoPronta(true);
+      return;
+    }
+    Promise.all(
+      faltantes.map((i) => criarIntegranteRemoto(i, auth.userId!).catch(() => null))
+    ).then(() => {
+      recarregarIntegrantesRemotos();
+      setMigracaoPronta(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.logado, auth.userId, integrantesRemotosCarregados]);
+
+  // Fonte oficial: Supabase quando disponível e a migração já rodou; até lá
+  // (ou offline/deslogado), continua mostrando o cache local — evita um
+  // "pisca" de lista vazia logo após o login, antes da migração terminar.
+  const integrantesEfetivos =
+    auth.supabaseConfigurado && auth.logado && migracaoPronta
+      ? integrantesRemotos
+      : integrantes;
 
   function abrirEscalaDoHistorico(escala: EscalaSalva) {
     setConfig(() => escala.config);
@@ -198,10 +267,11 @@ export default function Home() {
       <main className="max-w-3xl mx-auto px-4 py-6">
         {aba === "integrantes" && (
           <MembersManager
-            integrantes={integrantes}
+            integrantes={integrantesEfetivos}
             setIntegrantes={setIntegrantes}
             instrumentos={instrumentos}
             historico={historico}
+            auth={auth}
           />
         )}
         {aba === "instrumentos" && (
@@ -215,7 +285,7 @@ export default function Home() {
         )}
         {aba === "escala" && (
           <ScheduleView
-            integrantes={integrantes}
+            integrantes={integrantesEfetivos}
             instrumentos={instrumentos}
             config={config}
             setConfig={setConfig}

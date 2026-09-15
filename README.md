@@ -85,6 +85,17 @@ Com Supabase configurado e você logado:
 Sem essas variáveis configuradas, o app funciona normalmente offline — só a
 aprovação remota fica desligada (o aviso aparece na aba Escala/Histórico).
 
+### Integrantes na nuvem (opcional)
+
+Com o Supabase já configurado (passo acima), rode também o arquivo
+`supabase/migration_integrantes.sql` no SQL Editor — ele cria a tabela
+`integrantes`. A partir daí, assim que você entrar com sua conta, o app
+migra automaticamente (uma única vez, sem duplicar) os integrantes que já
+estavam cadastrados neste aparelho para o Supabase, preservando o id de
+cada um — escalas antigas continuam funcionando normalmente. Sem essa
+tabela ou sem login, o cadastro de integrantes continua 100% local, como
+sempre foi.
+
 ### Instalar como aplicativo no celular
 
 O app tem um manifesto e funciona offline, então dá pra instalar como um app

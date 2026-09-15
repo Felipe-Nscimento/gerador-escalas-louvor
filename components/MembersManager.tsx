@@ -32,12 +32,15 @@ import {
 } from "@/lib/types";
 import { pessoasDoItem, unificarItens } from "@/lib/scheduleGenerator";
 import { uid } from "@/lib/storage";
+import { useAuth } from "@/lib/useAuth";
+import { atualizarIntegranteRemoto, criarIntegranteRemoto } from "@/lib/integrantesRemoto";
 
 interface Props {
   integrantes: Integrante[];
   setIntegrantes: (fn: (prev: Integrante[]) => Integrante[]) => void;
   instrumentos: Instrumento[];
   historico?: EscalaSalva[];
+  auth: ReturnType<typeof useAuth>;
 }
 
 type FiltroStatus = "ativos" | "inativos" | "todos";
@@ -117,9 +120,11 @@ export function MembersManager({
   setIntegrantes,
   instrumentos,
   historico = [],
+  auth,
 }: Props) {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [erroSync, setErroSync] = useState<string | null>(null);
 
   const [nome, setNome] = useState("");
   const [nomeExibicao, setNomeExibicao] = useState("");
@@ -298,12 +303,15 @@ export function MembersManager({
     return null;
   }
 
-  function salvar() {
+  const podeOnline = auth.supabaseConfigurado && !!auth.userId;
+
+  async function salvar() {
     const mensagem = validar();
     if (mensagem) {
       setErro(mensagem);
       return;
     }
+    setErroSync(null);
     const niveisArray: NivelPorFuncao[] = funcoes
       .filter((f) => niveis[f])
       .map((f) => ({ instrumentoId: f, nivel: niveis[f] }));
@@ -320,20 +328,37 @@ export function MembersManager({
       observacoesMusicais: observacoes.trim() || undefined,
       disponibilidade: dispo.length > 0 ? { dias: dispo } : undefined,
     };
+    const idFinal = editandoId ?? uid();
+    const integranteCompleto: Integrante = { id: idFinal, ...dados };
 
+    // otimista: a tela (e o cache local) atualiza na hora, mesmo offline
     if (editandoId) {
       setIntegrantes((prev) =>
-        prev.map((p) => (p.id === editandoId ? { ...p, ...dados } : p))
+        prev.map((p) => (p.id === editandoId ? integranteCompleto : p))
       );
     } else {
-      setIntegrantes((prev) => [...prev, { id: uid(), ...dados }]);
+      setIntegrantes((prev) => [...prev, integranteCompleto]);
     }
     setMostrarForm(false);
     setSalvo(true);
     setTimeout(() => setSalvo(false), 2000);
+
+    if (podeOnline) {
+      try {
+        if (editandoId) {
+          await atualizarIntegranteRemoto(idFinal, dados);
+        } else {
+          await criarIntegranteRemoto(integranteCompleto, auth.userId!);
+        }
+      } catch {
+        setErroSync(
+          "Não foi possível sincronizar esse integrante agora. Ele continua salvo neste aparelho."
+        );
+      }
+    }
   }
 
-  function excluir(id: string) {
+  async function excluir(id: string) {
     if (
       !window.confirm(
         "Excluir remove o integrante permanentemente. Se ele já apareceu em alguma escala salva, prefira Desativar em vez de excluir. Excluir mesmo assim?"
@@ -344,10 +369,18 @@ export function MembersManager({
     setIntegrantes((prev) => prev.filter((p) => p.id !== id));
   }
 
-  function alternarAtivo(id: string) {
+  async function alternarAtivo(id: string) {
+    const novoValor = !(integrantes.find((p) => p.id === id)?.ativo ?? true);
     setIntegrantes((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ativo: !(p.ativo ?? true) } : p))
+      prev.map((p) => (p.id === id ? { ...p, ativo: novoValor } : p))
     );
+    if (podeOnline) {
+      try {
+        await atualizarIntegranteRemoto(id, { ativo: novoValor });
+      } catch {
+        setErroSync("Não foi possível sincronizar essa mudança agora.");
+      }
+    }
   }
 
   function nomeInstrumento(id: string) {
@@ -392,6 +425,11 @@ export function MembersManager({
           <h2 className="text-xl font-semibold">Integrantes</h2>
           <p className="text-sm text-[hsl(var(--muted))]">
             Cadastre uma vez e reutilize em todas as escalas.
+            {podeOnline
+              ? " Sincronizado com a nuvem."
+              : auth.supabaseConfigurado
+              ? " Entre com sua conta para sincronizar com a nuvem."
+              : ""}
           </p>
         </div>
         <Button onClick={iniciarNovo} disabled={instrumentos.length === 0}>
@@ -698,6 +736,7 @@ export function MembersManager({
       {salvo && !mostrarForm && (
         <p className="text-sm text-emerald-500">Integrante salvo!</p>
       )}
+      {erroSync && <p className="text-sm text-red-500">{erroSync}</p>}
 
       {integrantes.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -810,13 +849,16 @@ export function MembersManager({
                         <UserCheck className="h-3.5 w-3.5" />
                       )}
                     </button>
-                    <button
-                      onClick={() => excluir(p.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
-                      aria-label="Excluir"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {!podeOnline && (
+                      <button
+                        onClick={() => excluir(p.id)}
+                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
+                        aria-label="Excluir"
+                        title="Excluir (só neste aparelho, sem sincronização online)"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
