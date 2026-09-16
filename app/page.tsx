@@ -33,6 +33,11 @@ import {
   criarIntegranteRemoto,
   listarIntegrantesRemotos,
 } from "@/lib/integrantesRemoto";
+import {
+  assinarInstrumentosRemotos,
+  criarInstrumentoRemoto,
+  listarInstrumentosRemotos,
+} from "@/lib/instrumentosRemoto";
 import { MembersManager } from "@/components/MembersManager";
 import { InstrumentsManager } from "@/components/InstrumentsManager";
 import { SettingsPanel } from "@/components/SettingsPanel";
@@ -100,6 +105,10 @@ export default function Home() {
   const [integrantesRemotosCarregados, setIntegrantesRemotosCarregados] = useState(false);
   const [migracaoPronta, setMigracaoPronta] = useState(false);
   const migracaoFeitaRef = useRef(false);
+  const [instrumentosRemotos, setInstrumentosRemotos] = useState<Instrumento[]>([]);
+  const [instrumentosRemotosCarregados, setInstrumentosRemotosCarregados] = useState(false);
+  const [migracaoInstrumentosPronta, setMigracaoInstrumentosPronta] = useState(false);
+  const migracaoInstrumentosFeitaRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", tema === "escuro");
@@ -183,6 +192,61 @@ export default function Home() {
     auth.supabaseConfigurado && auth.logado && migracaoPronta
       ? integrantesRemotos
       : integrantes;
+
+  const recarregarInstrumentosRemotos = useCallback(() => {
+    if (!auth.logado) return;
+    listarInstrumentosRemotos()
+      .then((lista) => {
+        setInstrumentosRemotos(lista);
+        setInstrumentosRemotosCarregados(true);
+      })
+      .catch(() => setInstrumentosRemotosCarregados(true));
+  }, [auth.logado]);
+
+  useEffect(() => {
+    if (!auth.logado) {
+      setInstrumentosRemotos([]);
+      setInstrumentosRemotosCarregados(false);
+      setMigracaoInstrumentosPronta(false);
+      migracaoInstrumentosFeitaRef.current = false;
+      return;
+    }
+    recarregarInstrumentosRemotos();
+    const cancelar = assinarInstrumentosRemotos(recarregarInstrumentosRemotos);
+    return cancelar;
+  }, [auth.logado, recarregarInstrumentosRemotos]);
+
+  // Mesma migração controlada dos integrantes: só insere no Supabase os
+  // instrumentos locais (inclusive os padrão) cujo id ainda não existe lá.
+  useEffect(() => {
+    if (
+      !auth.logado ||
+      !auth.userId ||
+      !instrumentosRemotosCarregados ||
+      migracaoInstrumentosFeitaRef.current
+    ) {
+      return;
+    }
+    migracaoInstrumentosFeitaRef.current = true;
+    const idsRemotos = new Set(instrumentosRemotos.map((i) => i.id));
+    const faltantes = instrumentos.filter((i) => !idsRemotos.has(i.id));
+    if (faltantes.length === 0) {
+      setMigracaoInstrumentosPronta(true);
+      return;
+    }
+    Promise.all(
+      faltantes.map((i) => criarInstrumentoRemoto(i, auth.userId!).catch(() => null))
+    ).then(() => {
+      recarregarInstrumentosRemotos();
+      setMigracaoInstrumentosPronta(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.logado, auth.userId, instrumentosRemotosCarregados]);
+
+  const instrumentosEfetivos =
+    auth.supabaseConfigurado && auth.logado && migracaoInstrumentosPronta
+      ? instrumentosRemotos
+      : instrumentos;
 
   function abrirEscalaDoHistorico(escala: EscalaSalva) {
     setConfig(() => escala.config);
@@ -269,15 +333,16 @@ export default function Home() {
           <MembersManager
             integrantes={integrantesEfetivos}
             setIntegrantes={setIntegrantes}
-            instrumentos={instrumentos}
+            instrumentos={instrumentosEfetivos}
             historico={historico}
             auth={auth}
           />
         )}
         {aba === "instrumentos" && (
           <InstrumentsManager
-            instrumentos={instrumentos}
+            instrumentos={instrumentosEfetivos}
             setInstrumentos={setInstrumentos}
+            auth={auth}
           />
         )}
         {aba === "config" && (
@@ -286,7 +351,7 @@ export default function Home() {
         {aba === "escala" && (
           <ScheduleView
             integrantes={integrantesEfetivos}
-            instrumentos={instrumentos}
+            instrumentos={instrumentosEfetivos}
             config={config}
             setConfig={setConfig}
             historico={historico}

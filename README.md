@@ -96,6 +96,15 @@ cada um — escalas antigas continuam funcionando normalmente. Sem essa
 tabela ou sem login, o cadastro de integrantes continua 100% local, como
 sempre foi.
 
+### Instrumentos na nuvem (opcional)
+
+Mesma ideia: rode `supabase/migration_instrumentos.sql` no SQL Editor pra
+criar a tabela `instrumentos`. Ao entrar com sua conta, os instrumentos já
+cadastrados neste aparelho (inclusive os padrão) migram automaticamente,
+preservando o id de cada um — o que os integrantes têm marcado em
+`funcoes` continua apontando pro instrumento certo. Sem essa tabela ou sem
+login, o cadastro de instrumentos continua 100% local.
+
 ### Instalar como aplicativo no celular
 
 O app tem um manifesto e funciona offline, então dá pra instalar como um app

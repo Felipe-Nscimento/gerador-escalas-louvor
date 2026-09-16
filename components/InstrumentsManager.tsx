@@ -8,20 +8,26 @@ import { Checkbox } from "./ui/Checkbox";
 import { Input } from "./ui/Input";
 import { Instrumento } from "@/lib/types";
 import { uid } from "@/lib/storage";
+import { useAuth } from "@/lib/useAuth";
+import { atualizarInstrumentoRemoto, criarInstrumentoRemoto } from "@/lib/instrumentosRemoto";
 
 interface Props {
   instrumentos: Instrumento[];
   setInstrumentos: (fn: (prev: Instrumento[]) => Instrumento[]) => void;
+  auth: ReturnType<typeof useAuth>;
 }
 
 const EMOJIS_SUGERIDOS = ["🎤", "🎸", "🎹", "🥁", "🎻", "🎷", "🪕", "🪘", "🎺", "🎵"];
 
-export function InstrumentsManager({ instrumentos, setInstrumentos }: Props) {
+export function InstrumentsManager({ instrumentos, setInstrumentos, auth }: Props) {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [emoji, setEmoji] = useState("🎵");
   const [obrigatorio, setObrigatorio] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [erroSync, setErroSync] = useState<string | null>(null);
+
+  const podeOnline = auth.supabaseConfigurado && !!auth.userId;
 
   function iniciarNovo() {
     setEditandoId(null);
@@ -39,23 +45,35 @@ export function InstrumentsManager({ instrumentos, setInstrumentos }: Props) {
     setMostrarForm(true);
   }
 
-  function salvar() {
+  async function salvar() {
     if (!nome.trim()) return;
+    setErroSync(null);
+    const dados = { nome: nome.trim(), emoji: emoji || "🎵", obrigatorio };
+    const idFinal = editandoId ?? uid();
+    const instrumentoCompleto: Instrumento = { id: idFinal, ...dados };
+
     if (editandoId) {
       setInstrumentos((prev) =>
-        prev.map((i) =>
-          i.id === editandoId
-            ? { ...i, nome: nome.trim(), emoji: emoji || "🎵", obrigatorio }
-            : i
-        )
+        prev.map((i) => (i.id === editandoId ? instrumentoCompleto : i))
       );
     } else {
-      setInstrumentos((prev) => [
-        ...prev,
-        { id: uid(), nome: nome.trim(), emoji: emoji || "🎵", obrigatorio },
-      ]);
+      setInstrumentos((prev) => [...prev, instrumentoCompleto]);
     }
     setMostrarForm(false);
+
+    if (podeOnline) {
+      try {
+        if (editandoId) {
+          await atualizarInstrumentoRemoto(idFinal, dados);
+        } else {
+          await criarInstrumentoRemoto(instrumentoCompleto, auth.userId!);
+        }
+      } catch {
+        setErroSync(
+          "Não foi possível sincronizar esse instrumento agora. Ele continua salvo neste aparelho."
+        );
+      }
+    }
   }
 
   function excluir(id: string) {
@@ -69,6 +87,11 @@ export function InstrumentsManager({ instrumentos, setInstrumentos }: Props) {
           <h2 className="text-xl font-semibold">Instrumentos</h2>
           <p className="text-sm text-[hsl(var(--muted))]">
             Funções que os integrantes podem exercer na escala.
+            {podeOnline
+              ? " Sincronizado com a nuvem."
+              : auth.supabaseConfigurado
+              ? " Entre com sua conta para sincronizar com a nuvem."
+              : ""}
           </p>
         </div>
         <Button onClick={iniciarNovo}>
@@ -129,6 +152,8 @@ export function InstrumentsManager({ instrumentos, setInstrumentos }: Props) {
         </Card>
       )}
 
+      {erroSync && <p className="text-sm text-red-500">{erroSync}</p>}
+
       {instrumentos.length === 0 && !mostrarForm && (
         <Card>
           <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-2 text-[hsl(var(--muted))]">
@@ -160,12 +185,15 @@ export function InstrumentsManager({ instrumentos, setInstrumentos }: Props) {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
-                <button
-                  onClick={() => excluir(inst.id)}
-                  className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {!podeOnline && (
+                  <button
+                    onClick={() => excluir(inst.id)}
+                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
+                    title="Excluir (só neste aparelho, sem sincronização online)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
             </CardContent>
           </Card>
