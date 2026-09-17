@@ -9,7 +9,7 @@ import { Input } from "./ui/Input";
 import { Instrumento } from "@/lib/types";
 import { uid } from "@/lib/storage";
 import { useAuth } from "@/lib/useAuth";
-import { atualizarInstrumentoRemoto, criarInstrumentoRemoto } from "@/lib/instrumentosRemoto";
+import { atualizarInstrumentoRemoto, criarInstrumentoRemoto, excluirInstrumentoRemoto } from "@/lib/instrumentosRemoto";
 
 interface Props {
   instrumentos: Instrumento[];
@@ -76,8 +76,25 @@ export function InstrumentsManager({ instrumentos, setInstrumentos, auth }: Prop
     }
   }
 
-  function excluir(id: string) {
+  async function excluir(id: string) {
+    if (
+      !window.confirm(
+        "Excluir remove o instrumento permanentemente (inclusive da nuvem, se estiver sincronizado). Excluir mesmo assim?"
+      )
+    ) {
+      return;
+    }
+    setErroSync(null);
     setInstrumentos((prev) => prev.filter((i) => i.id !== id));
+    if (podeOnline) {
+      try {
+        await excluirInstrumentoRemoto(id);
+      } catch {
+        setErroSync(
+          "Não foi possível excluir da nuvem agora. Removido só deste aparelho."
+        );
+      }
+    }
   }
 
   return (
@@ -185,15 +202,17 @@ export function InstrumentsManager({ instrumentos, setInstrumentos, auth }: Prop
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
-                {!podeOnline && (
-                  <button
-                    onClick={() => excluir(inst.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
-                    title="Excluir (só neste aparelho, sem sincronização online)"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                <button
+                  onClick={() => excluir(inst.id)}
+                  className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
+                  title={
+                    podeOnline
+                      ? "Excluir permanentemente"
+                      : "Excluir (só neste aparelho, sem sincronização online)"
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </CardContent>
           </Card>

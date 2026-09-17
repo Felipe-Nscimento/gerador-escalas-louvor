@@ -78,7 +78,7 @@ export default function Home() {
   const [aba, setAba] = usePersistedState<Aba>("louvor:aba", "escala");
   const [integrantes, setIntegrantes, integrantesCarregados] =
     usePersistedState<Integrante[]>(KEYS.integrantes, INTEGRANTES_INICIAIS);
-  const [instrumentos, setInstrumentos] = usePersistedState<Instrumento[]>(
+  const [instrumentos, setInstrumentos, instrumentosCarregados] = usePersistedState<Instrumento[]>(
     KEYS.instrumentos,
     INSTRUMENTOS_PADRAO
   );
@@ -160,10 +160,15 @@ export default function Home() {
   // Supabase os integrantes locais cujo id ainda não existe lá (nunca
   // sobrescreve, nunca gera id novo) — preserva o id original pra escalas
   // antigas (locais ou já salvas no Supabase) continuarem funcionando.
+  // Também confere por NOME: um aparelho que nunca teve dados salvos gera
+  // seus próprios ids aleatórios para os integrantes de exemplo, e sem essa
+  // checagem extra isso cria duplicados (mesma pessoa, id diferente) toda
+  // vez que um aparelho "novo" loga pela primeira vez.
   useEffect(() => {
     if (
       !auth.logado ||
       !auth.userId ||
+      !integrantesCarregados ||
       !integrantesRemotosCarregados ||
       migracaoFeitaRef.current
     ) {
@@ -171,7 +176,12 @@ export default function Home() {
     }
     migracaoFeitaRef.current = true;
     const idsRemotos = new Set(integrantesRemotos.map((i) => i.id));
-    const faltantes = integrantes.filter((i) => !idsRemotos.has(i.id));
+    const nomesRemotos = new Set(
+      integrantesRemotos.map((i) => i.nome.trim().toLowerCase())
+    );
+    const faltantes = integrantes.filter(
+      (i) => !idsRemotos.has(i.id) && !nomesRemotos.has(i.nome.trim().toLowerCase())
+    );
     if (faltantes.length === 0) {
       setMigracaoPronta(true);
       return;
@@ -183,7 +193,7 @@ export default function Home() {
       setMigracaoPronta(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.logado, auth.userId, integrantesRemotosCarregados]);
+  }, [auth.logado, auth.userId, integrantesCarregados, integrantesRemotosCarregados]);
 
   // Fonte oficial: Supabase quando disponível e a migração já rodou; até lá
   // (ou offline/deslogado), continua mostrando o cache local — evita um
@@ -217,11 +227,14 @@ export default function Home() {
   }, [auth.logado, recarregarInstrumentosRemotos]);
 
   // Mesma migração controlada dos integrantes: só insere no Supabase os
-  // instrumentos locais (inclusive os padrão) cujo id ainda não existe lá.
+  // instrumentos locais (inclusive os padrão) cujo id ainda não existe lá,
+  // e também confere por nome pelo mesmo motivo (evita duplicar "Voz",
+  // "Violão" etc. quando um aparelho novo loga pela primeira vez).
   useEffect(() => {
     if (
       !auth.logado ||
       !auth.userId ||
+      !instrumentosCarregados ||
       !instrumentosRemotosCarregados ||
       migracaoInstrumentosFeitaRef.current
     ) {
@@ -229,7 +242,12 @@ export default function Home() {
     }
     migracaoInstrumentosFeitaRef.current = true;
     const idsRemotos = new Set(instrumentosRemotos.map((i) => i.id));
-    const faltantes = instrumentos.filter((i) => !idsRemotos.has(i.id));
+    const nomesRemotos = new Set(
+      instrumentosRemotos.map((i) => i.nome.trim().toLowerCase())
+    );
+    const faltantes = instrumentos.filter(
+      (i) => !idsRemotos.has(i.id) && !nomesRemotos.has(i.nome.trim().toLowerCase())
+    );
     if (faltantes.length === 0) {
       setMigracaoInstrumentosPronta(true);
       return;
@@ -241,7 +259,7 @@ export default function Home() {
       setMigracaoInstrumentosPronta(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.logado, auth.userId, instrumentosRemotosCarregados]);
+  }, [auth.logado, auth.userId, instrumentosCarregados, instrumentosRemotosCarregados]);
 
   const instrumentosEfetivos =
     auth.supabaseConfigurado && auth.logado && migracaoInstrumentosPronta

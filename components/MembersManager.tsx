@@ -34,7 +34,11 @@ import {
 import { pessoasDoItem, unificarItens } from "@/lib/scheduleGenerator";
 import { uid } from "@/lib/storage";
 import { useAuth } from "@/lib/useAuth";
-import { atualizarIntegranteRemoto, criarIntegranteRemoto } from "@/lib/integrantesRemoto";
+import {
+  atualizarIntegranteRemoto,
+  criarIntegranteRemoto,
+  excluirIntegranteRemoto,
+} from "@/lib/integrantesRemoto";
 
 /** "YYYY-MM-DD" -> "DD/MM/AAAA", sem passar por Date (evita bug de fuso horário). */
 function formatarDataBR(iso: string): string {
@@ -483,12 +487,22 @@ export function MembersManager({
   async function excluir(id: string) {
     if (
       !window.confirm(
-        "Excluir remove o integrante permanentemente. Se ele já apareceu em alguma escala salva, prefira Desativar em vez de excluir. Excluir mesmo assim?"
+        "Excluir remove o integrante permanentemente (inclusive da nuvem, se estiver sincronizado). Escalas antigas continuam mostrando o nome normalmente, mas ele deixa de aparecer pra escalar em escalas novas. Prefira Desativar se não tiver certeza. Excluir mesmo assim?"
       )
     ) {
       return;
     }
+    setErroSync(null);
     setIntegrantes((prev) => prev.filter((p) => p.id !== id));
+    if (podeOnline) {
+      try {
+        await excluirIntegranteRemoto(id);
+      } catch {
+        setErroSync(
+          "Não foi possível excluir da nuvem agora. Removido só deste aparelho."
+        );
+      }
+    }
   }
 
   async function alternarAtivo(id: string) {
@@ -1121,16 +1135,14 @@ export function MembersManager({
                         <UserCheck className="h-3.5 w-3.5" />
                       )}
                     </button>
-                    {!podeOnline && (
-                      <button
-                        onClick={() => excluir(p.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
-                        aria-label="Excluir"
-                        title="Excluir (só neste aparelho, sem sincronização online)"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => excluir(p.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500"
+                      aria-label="Excluir"
+                      title="Excluir permanentemente"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
 

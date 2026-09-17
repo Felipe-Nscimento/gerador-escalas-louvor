@@ -79,6 +79,18 @@ export async function atualizarInstrumentoRemoto(
   return linhaParaInstrumento(data as LinhaInstrumento);
 }
 
+/**
+ * Exclusão física — usada só quando a pessoa pede explicitamente pra
+ * excluir (ex: cadastro duplicado). Escalas antigas não quebram: elas
+ * guardam uma cópia do instrumento congelada no próprio payload, não uma
+ * referência viva a esta tabela.
+ */
+export async function excluirInstrumentoRemoto(id: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase não configurado.");
+  const { error } = await supabase.from("instrumentos").delete().eq("id", id);
+  if (error) throw error;
+}
+
 /** Assina mudanças em tempo real na tabela; retorna uma função para cancelar a assinatura. */
 export function assinarInstrumentosRemotos(callback: () => void): () => void {
   if (!supabase) return () => {};
