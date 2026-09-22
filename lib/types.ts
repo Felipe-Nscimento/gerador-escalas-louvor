@@ -92,6 +92,15 @@ export interface Disponibilidade {
   observacao?: string;
 }
 
+/**
+ * Restrições individuais do integrante — únicos campos que funcionam como
+ * BLOQUEIO absoluto no gerador (tudo mais é só pontuação).
+ */
+export interface Restricoes {
+  funcoesBloqueadas?: string[]; // ids de Instrumento que a pessoa não deve exercer, mesmo estando marcados em `funcoes`
+  podeAcumularFuncoes?: boolean; // false = não pode ocupar duas funções no mesmo culto (default: true, preserva o comportamento atual)
+}
+
 export interface Integrante {
   id: string;
   nome: string; // nome completo — continua sendo o campo que a escala usa
@@ -105,6 +114,8 @@ export interface Integrante {
   niveis?: NivelPorFuncao[];
   observacoesMusicais?: string;
   disponibilidade?: Disponibilidade;
+  preferencias?: string[]; // ids de Instrumento — subconjunto de `funcoes` que a pessoa prefere (só pontuação, nunca bloqueio)
+  restricoes?: Restricoes;
 }
 
 export interface Regras {

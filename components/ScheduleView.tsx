@@ -21,6 +21,9 @@ import {
   Undo,
   CloudOff,
   UserRound,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent } from "./ui/Card";
@@ -41,6 +44,7 @@ import {
   criarCultoExtra,
   gerarEscala,
   gerarOutraEscala,
+  RelatorioGeracao,
   unificarItens,
   validarEscala,
 } from "@/lib/scheduleGenerator";
@@ -117,6 +121,8 @@ export function ScheduleView({
   const [mostrarFormExtra, setMostrarFormExtra] = useState(false);
   const [novaDataExtra, setNovaDataExtra] = useState("");
   const [novoTituloExtra, setNovoTituloExtra] = useState("");
+  const [relatorio, setRelatorio] = useState<RelatorioGeracao | null>(null);
+  const [mostrarExplicacoes, setMostrarExplicacoes] = useState(false);
 
   const { domingos, domingosOriginais, cultosExtras, escalaAtualId, origemRemota } =
     rascunho;
@@ -149,9 +155,15 @@ export function ScheduleView({
   const alertas = useMemo(
     () =>
       domingos
-        ? validarEscala(domingos, integrantesEfetivos, instrumentosEfetivos, cultosExtras)
+        ? validarEscala(
+            domingos,
+            integrantesEfetivos,
+            instrumentosEfetivos,
+            cultosExtras,
+            config.regras
+          )
         : [],
-    [domingos, integrantesEfetivos, instrumentosEfetivos, cultosExtras]
+    [domingos, integrantesEfetivos, instrumentosEfetivos, cultosExtras, config.regras]
   );
   const estatisticas = useMemo(
     () =>
@@ -187,6 +199,9 @@ export function ScheduleView({
           cultosExtras: remotaVinculada.payload.cultosExtras,
         })
       : null;
+    // o relatório da geração inteligente só faz sentido pra escala recém
+    // gerada nesta sessão — ao abrir uma escala salva, não reconstruímos.
+    setRelatorio(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escalaAtualId]);
 
@@ -246,7 +261,12 @@ export function ScheduleView({
   }, [escalaAtualId, statusAtual]);
 
   function gerar() {
-    const nova = gerarEscala(integrantes, instrumentos, config, historico);
+    const { domingos: nova, relatorio: novoRelatorio } = gerarEscala(
+      integrantes,
+      instrumentos,
+      config,
+      historico
+    );
     setRascunho({
       escalaAtualId: null,
       origemRemota: false,
@@ -254,12 +274,18 @@ export function ScheduleView({
       domingosOriginais: nova,
       cultosExtras: [],
     });
+    setRelatorio(novoRelatorio);
     setSalvo(false);
   }
 
   function gerarOutra() {
     if (bloqueado) return;
-    const nova = gerarOutraEscala(integrantes, instrumentos, config, historico);
+    const { domingos: nova, relatorio: novoRelatorio } = gerarOutraEscala(
+      integrantes,
+      instrumentos,
+      config,
+      historico
+    );
     setRascunho((r) => ({
       ...r,
       escalaAtualId: null,
@@ -267,6 +293,7 @@ export function ScheduleView({
       domingos: nova,
       domingosOriginais: nova,
     }));
+    setRelatorio(novoRelatorio);
     setSalvo(false);
   }
 
@@ -665,6 +692,89 @@ export function ScheduleView({
 
       {domingos && (
         <>
+          {relatorio && (
+            <Card
+              className={`no-print ${
+                relatorio.qualidade.nivel === "excelente"
+                  ? "border-emerald-500/40"
+                  : relatorio.qualidade.nivel === "boa"
+                  ? "border-amber-400/40"
+                  : "border-red-400/40"
+              }`}
+            >
+              <CardContent className="pt-5 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    {relatorio.qualidade.nivel === "excelente"
+                      ? "🟢"
+                      : relatorio.qualidade.nivel === "boa"
+                      ? "🟡"
+                      : "🔴"}{" "}
+                    Qualidade da geração: {relatorio.qualidade.percentual}%{" "}
+                    <span className="text-[hsl(var(--muted))] font-normal">
+                      (
+                      {relatorio.qualidade.nivel === "excelente"
+                        ? "Excelente"
+                        : relatorio.qualidade.nivel === "boa"
+                        ? "Boa"
+                        : "Atenção"}
+                      )
+                    </span>
+                  </p>
+                  {relatorio.explicacoes.length > 0 && (
+                    <button
+                      onClick={() => setMostrarExplicacoes((v) => !v)}
+                      className="text-xs text-[hsl(var(--primary))] hover:underline flex items-center gap-1"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                      {mostrarExplicacoes ? "Ocultar" : "Por que essas pessoas?"}
+                      {mostrarExplicacoes ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {relatorio.problemas.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-red-500">
+                      Não foi possível preencher todas as funções:
+                    </p>
+                    {relatorio.problemas.map((p, i) => (
+                      <p key={i} className="text-xs text-[hsl(var(--muted))]">
+                        ❌ {p.itemRotulo} — {p.instrumentoNome}
+                        <br />
+                        <span className="pl-4">Motivo: {p.motivo}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {mostrarExplicacoes && relatorio.explicacoes.length > 0 && (
+                  <div className="space-y-2 pt-1 border-t border-[hsl(var(--border))]">
+                    {relatorio.explicacoes.map((exp, i) => (
+                      <div key={i} className="text-xs pt-2 first:pt-0">
+                        <p className="font-medium">
+                          {exp.itemRotulo} — {exp.pessoaNome} ({exp.instrumentoNome}):{" "}
+                          {exp.compatibilidade}%
+                        </p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[hsl(var(--muted))]">
+                          {exp.checagens.map((c, j) => (
+                            <span key={j}>
+                              {c.ok ? "✓" : "✗"} {c.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status de aprovação */}
           <Card
             className={`no-print ${

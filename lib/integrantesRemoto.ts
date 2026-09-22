@@ -17,6 +17,8 @@ interface LinhaIntegrante {
   niveis: Integrante["niveis"];
   observacoes_musicais: string | null;
   disponibilidade: Integrante["disponibilidade"] | null;
+  preferencias: string[] | null;
+  restricoes: Integrante["restricoes"] | null;
 }
 
 function linhaParaIntegrante(l: LinhaIntegrante): Integrante {
@@ -32,6 +34,8 @@ function linhaParaIntegrante(l: LinhaIntegrante): Integrante {
     niveis: l.niveis && l.niveis.length > 0 ? l.niveis : undefined,
     observacoesMusicais: l.observacoes_musicais ?? undefined,
     disponibilidade: l.disponibilidade ?? undefined,
+    preferencias: l.preferencias && l.preferencias.length > 0 ? l.preferencias : undefined,
+    restricoes: l.restricoes ?? undefined,
   };
 }
 
@@ -50,6 +54,8 @@ function integranteParaColunas(patch: Partial<Integrante>): Record<string, unkno
     colunas.observacoes_musicais = patch.observacoesMusicais ?? null;
   if (patch.disponibilidade !== undefined)
     colunas.disponibilidade = patch.disponibilidade ?? null;
+  if (patch.preferencias !== undefined) colunas.preferencias = patch.preferencias ?? [];
+  if (patch.restricoes !== undefined) colunas.restricoes = patch.restricoes ?? null;
   return colunas;
 }
 
