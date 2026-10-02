@@ -53,6 +53,11 @@ import { gerarTextoWhatsApp, MESES, nomeDiaSemana } from "@/lib/whatsapp";
 import { KEYS, uid, usePersistedState } from "@/lib/storage";
 import { moverItem, ordenarFuncoes } from "@/lib/ordemFuncoes";
 import {
+  assinarPreferenciasRemotas,
+  carregarOrdemFuncoesRemota,
+  salvarOrdemFuncoesRemota,
+} from "@/lib/preferenciasRemoto";
+import {
   atualizarEscalaRemota,
   criarEscalaRemota,
   EscalaRemota,
@@ -132,6 +137,8 @@ export function ScheduleView({
   );
   const [arrastandoId, setArrastandoId] = useState<string | null>(null);
   const [sobreId, setSobreId] = useState<string | null>(null);
+  const [erroOrdem, setErroOrdem] = useState<string | null>(null);
+  const ordemRemotaVistaRef = useRef(false);
 
   const { domingos, domingosOriginais, cultosExtras, escalaAtualId, origemRemota } =
     rascunho;
@@ -167,12 +174,67 @@ export function ScheduleView({
     [instrumentosEfetivos, ordemFuncoes]
   );
 
+  /** Guarda a ordem no aparelho e, se estiver logado, na nuvem (vale para todos os aparelhos). */
+  function salvarOrdem(ids: string[] | null) {
+    setOrdemFuncoes(ids);
+    if (!auth.supabaseConfigurado || !auth.logado || !auth.userId) return;
+    salvarOrdemFuncoesRemota(ids ?? [], auth.userId)
+      .then(() => setErroOrdem(null))
+      .catch(() =>
+        setErroOrdem(
+          "Não foi possível salvar a ordem na nuvem. Ela ficou salva só neste aparelho."
+        )
+      );
+  }
+
+  // Sincroniza a ordem com a nuvem: a versão da nuvem manda; se a nuvem ainda
+  // não tem nenhuma e este aparelho já tem uma ordem, ela sobe para a nuvem.
+  useEffect(() => {
+    if (!auth.supabaseConfigurado || !auth.logado || !auth.userId) return;
+    let ativo = true;
+    const userId = auth.userId;
+    function sincronizar() {
+      carregarOrdemFuncoesRemota()
+        .then((remota) => {
+          if (!ativo) return;
+          if (remota === undefined) {
+            if (!ordemRemotaVistaRef.current) {
+              ordemRemotaVistaRef.current = true;
+              try {
+                const local = JSON.parse(
+                  window.localStorage.getItem(KEYS.ordemFuncoes) ?? "null"
+                );
+                if (Array.isArray(local) && local.length > 0) {
+                  salvarOrdemFuncoesRemota(local, userId).catch(() => {});
+                }
+              } catch {
+                /* ignora */
+              }
+            }
+            return;
+          }
+          ordemRemotaVistaRef.current = true;
+          setOrdemFuncoes(remota.length > 0 ? remota : null);
+        })
+        .catch(() => {
+          /* silencioso — continua com a ordem local */
+        });
+    }
+    sincronizar();
+    const cancelar = assinarPreferenciasRemotas(sincronizar);
+    return () => {
+      ativo = false;
+      cancelar();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.supabaseConfigurado, auth.logado, auth.userId]);
+
   function moverFuncao(idOrigem: string, idDestino: string) {
     const ids = instrumentosOrdenados.map((i) => i.id);
     const de = ids.indexOf(idOrigem);
     const para = ids.indexOf(idDestino);
     if (de === -1 || para === -1 || de === para) return;
-    setOrdemFuncoes(moverItem(ids, de, para));
+    salvarOrdem(moverItem(ids, de, para));
   }
 
   function moverFuncaoPorTeclado(idFuncao: string, direcao: -1 | 1) {
@@ -180,7 +242,7 @@ export function ScheduleView({
     const de = ids.indexOf(idFuncao);
     const para = de + direcao;
     if (de === -1 || para < 0 || para >= ids.length) return;
-    setOrdemFuncoes(moverItem(ids, de, para));
+    salvarOrdem(moverItem(ids, de, para));
   }
 
   function aoSoltarFuncao() {
@@ -1062,13 +1124,18 @@ export function ScheduleView({
                 ))}
                 {ordemFuncoes && (
                   <button
-                    onClick={() => setOrdemFuncoes(null)}
+                    onClick={() => salvarOrdem(null)}
                     className="ml-auto flex items-center gap-1 text-[hsl(var(--primary))] hover:underline"
                   >
                     <RotateCcw className="h-3 w-3" /> Restaurar ordem padrão
                   </button>
                 )}
               </div>
+              {erroOrdem && (
+                <p className="px-4 py-2 text-xs text-red-500 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+                  {erroOrdem}
+                </p>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                   <thead>
