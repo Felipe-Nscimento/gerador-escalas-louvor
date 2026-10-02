@@ -24,6 +24,7 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent } from "./ui/Card";
@@ -49,7 +50,8 @@ import {
   validarEscala,
 } from "@/lib/scheduleGenerator";
 import { gerarTextoWhatsApp, MESES, nomeDiaSemana } from "@/lib/whatsapp";
-import { uid } from "@/lib/storage";
+import { KEYS, uid, usePersistedState } from "@/lib/storage";
+import { moverItem, ordenarFuncoes } from "@/lib/ordemFuncoes";
 import {
   atualizarEscalaRemota,
   criarEscalaRemota,
@@ -123,6 +125,13 @@ export function ScheduleView({
   const [novoTituloExtra, setNovoTituloExtra] = useState("");
   const [relatorio, setRelatorio] = useState<RelatorioGeracao | null>(null);
   const [mostrarExplicacoes, setMostrarExplicacoes] = useState(false);
+  // ordem de exibição das funções (lista de ids); null = ordem padrão
+  const [ordemFuncoes, setOrdemFuncoes] = usePersistedState<string[] | null>(
+    KEYS.ordemFuncoes,
+    null
+  );
+  const [arrastandoId, setArrastandoId] = useState<string | null>(null);
+  const [sobreId, setSobreId] = useState<string | null>(null);
 
   const { domingos, domingosOriginais, cultosExtras, escalaAtualId, origemRemota } =
     rascunho;
@@ -151,6 +160,42 @@ export function ScheduleView({
   // sem esses cadastros locais.
   const integrantesEfetivos = remotaVinculada?.payload?.integrantes ?? integrantes;
   const instrumentosEfetivos = remotaVinculada?.payload?.instrumentos ?? instrumentos;
+  // mesma lista, só que na ordem de exibição (padrão ou escolhida). A geração,
+  // a validação e o que vai pra nuvem continuam usando `instrumentosEfetivos`.
+  const instrumentosOrdenados = useMemo(
+    () => ordenarFuncoes(instrumentosEfetivos, ordemFuncoes),
+    [instrumentosEfetivos, ordemFuncoes]
+  );
+
+  function moverFuncao(idOrigem: string, idDestino: string) {
+    const ids = instrumentosOrdenados.map((i) => i.id);
+    const de = ids.indexOf(idOrigem);
+    const para = ids.indexOf(idDestino);
+    if (de === -1 || para === -1 || de === para) return;
+    setOrdemFuncoes(moverItem(ids, de, para));
+  }
+
+  function moverFuncaoPorTeclado(idFuncao: string, direcao: -1 | 1) {
+    const ids = instrumentosOrdenados.map((i) => i.id);
+    const de = ids.indexOf(idFuncao);
+    const para = de + direcao;
+    if (de === -1 || para < 0 || para >= ids.length) return;
+    setOrdemFuncoes(moverItem(ids, de, para));
+  }
+
+  function aoSoltarFuncao() {
+    if (arrastandoId && sobreId) moverFuncao(arrastandoId, sobreId);
+    setArrastandoId(null);
+    setSobreId(null);
+  }
+
+  function aoArrastarFuncao(e: React.PointerEvent) {
+    if (!arrastandoId) return;
+    const alvo = document
+      .elementFromPoint(e.clientX, e.clientY)
+      ?.closest("[data-funcao-id]");
+    setSobreId(alvo?.getAttribute("data-funcao-id") ?? null);
+  }
 
   const alertas = useMemo(
     () =>
@@ -637,7 +682,7 @@ export function ScheduleView({
     const texto = gerarTextoWhatsApp(
       domingos,
       integrantesEfetivos,
-      instrumentosEfetivos,
+      instrumentosOrdenados,
       config.mes,
       config.ano,
       cultosExtras
@@ -983,7 +1028,7 @@ export function ScheduleView({
                       </p>
                     ) : (
                       <div className="text-sm space-y-0.5">
-                        {instrumentosEfetivos.map((inst) =>
+                        {instrumentosOrdenados.map((inst) =>
                           (item.escalacao.atribuicoes[inst.id] ?? []).map((id) => (
                             <p key={`${inst.id}-${id}`}>
                               {inst.emoji}{" "}
@@ -1015,6 +1060,14 @@ export function ScheduleView({
                     {STATUS_LABEL[chave]}
                   </span>
                 ))}
+                {ordemFuncoes && (
+                  <button
+                    onClick={() => setOrdemFuncoes(null)}
+                    className="ml-auto flex items-center gap-1 text-[hsl(var(--primary))] hover:underline"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Restaurar ordem padrão
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
@@ -1061,21 +1114,55 @@ export function ScheduleView({
                     </tr>
                   </thead>
                   <tbody>
-                    {instrumentosEfetivos.map((inst, rowIdx) => (
+                    {instrumentosOrdenados.map((inst, rowIdx) => (
                       <tr
                         key={inst.id}
-                        className={
+                        data-funcao-id={inst.id}
+                        className={`${
                           rowIdx % 2 === 0
                             ? "bg-[hsl(var(--card))]"
                             : "bg-[hsl(var(--background))]"
-                        }
+                        } ${arrastandoId === inst.id ? "opacity-50" : ""} ${
+                          arrastandoId && sobreId === inst.id && arrastandoId !== inst.id
+                            ? "outline outline-2 -outline-offset-2 outline-[hsl(var(--primary))]"
+                            : ""
+                        }`}
                       >
                         <td
-                          className={`sticky left-0 z-10 px-4 py-3 font-medium align-top border-r border-b border-[hsl(var(--border))] ${corDaFuncao(
+                          className={`sticky left-0 z-10 px-2 py-3 font-medium align-top border-r border-b border-[hsl(var(--border))] ${corDaFuncao(
                             inst.nome
                           )}`}
                         >
-                          <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="flex items-center gap-1 whitespace-nowrap">
+                            <button
+                              type="button"
+                              aria-label={`Mover ${inst.nome} (arraste, ou use as setas ↑ ↓)`}
+                              title="Arraste para reordenar"
+                              onPointerDown={(e) => {
+                                e.currentTarget.setPointerCapture(e.pointerId);
+                                setArrastandoId(inst.id);
+                                setSobreId(inst.id);
+                              }}
+                              onPointerMove={aoArrastarFuncao}
+                              onPointerUp={aoSoltarFuncao}
+                              onPointerCancel={() => {
+                                setArrastandoId(null);
+                                setSobreId(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "ArrowUp") {
+                                  e.preventDefault();
+                                  moverFuncaoPorTeclado(inst.id, -1);
+                                } else if (e.key === "ArrowDown") {
+                                  e.preventDefault();
+                                  moverFuncaoPorTeclado(inst.id, 1);
+                                }
+                              }}
+                              style={{ touchAction: "none" }}
+                              className="p-1 rounded-lg cursor-grab active:cursor-grabbing text-[hsl(var(--muted))] hover:bg-[hsl(var(--border))]/40 shrink-0"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </button>
                             {inst.emoji} {inst.nome}
                           </span>
                         </td>
