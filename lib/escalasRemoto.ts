@@ -1,6 +1,16 @@
 import { supabase } from "./supabase";
 import { PayloadEscala, StatusEscala } from "./types";
 
+/** Erro de negócio ao atualizar uma escala remota (com o motivo já explicado em português). */
+export class ErroEscalaRemota extends Error {
+  motivo: "inexistente" | "sem_permissao";
+  constructor(motivo: "inexistente" | "sem_permissao", mensagem: string) {
+    super(mensagem);
+    this.name = "ErroEscalaRemota";
+    this.motivo = motivo;
+  }
+}
+
 export interface EscalaRemota {
   id: string;
   created_at: string;
@@ -65,10 +75,36 @@ export async function atualizarEscalaRemota(
     .from("escalas_aprovacao")
     .update(patch)
     .eq("id", id)
-    .select()
-    .single();
+    .select();
   if (error) throw error;
-  return data as EscalaRemota;
+  if (data && data.length > 0) return data[0] as EscalaRemota;
+
+  // Nenhuma linha foi atualizada. Como a leitura é liberada para qualquer
+  // pessoa logada, dá pra descobrir o motivo em vez de mostrar um erro técnico.
+  const { data: existente } = await supabase
+    .from("escalas_aprovacao")
+    .select("id, created_by, status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existente) {
+    throw new ErroEscalaRemota(
+      "inexistente",
+      "Esta escala não existe mais na nuvem (foi excluída)."
+    );
+  }
+
+  const statusLinha = (existente as { status: StatusEscala }).status;
+  if (statusLinha === "aprovada" || statusLinha === "publicada") {
+    throw new ErroEscalaRemota(
+      "sem_permissao",
+      "Esta escala já foi aprovada/publicada e só o líder pode alterá-la."
+    );
+  }
+  throw new ErroEscalaRemota(
+    "sem_permissao",
+    "Você não tem permissão para alterar esta escala: ela foi criada por outra conta. Entre com a conta que a criou ou peça ao líder."
+  );
 }
 
 export async function excluirEscalaRemota(id: string): Promise<void> {

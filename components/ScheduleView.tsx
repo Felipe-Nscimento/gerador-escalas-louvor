@@ -61,6 +61,7 @@ import {
   atualizarEscalaRemota,
   criarEscalaRemota,
   EscalaRemota,
+  ErroEscalaRemota,
 } from "@/lib/escalasRemoto";
 import { useAuth } from "@/lib/useAuth";
 
@@ -599,7 +600,17 @@ export function ScheduleView({
     setErroEnvio(null);
     try {
       if (origemRemota && escalaAtualId) {
-        await atualizarEscalaRemota(escalaAtualId, { payload });
+        try {
+          await atualizarEscalaRemota(escalaAtualId, { payload });
+        } catch (e) {
+          // a escala foi excluída da nuvem: recria como rascunho novo
+          if (e instanceof ErroEscalaRemota && e.motivo === "inexistente") {
+            const linha = await criarEscalaRemota(payload, auth.userId!, "rascunho");
+            setRascunho((r) => ({ ...r, escalaAtualId: linha.id, origemRemota: true }));
+          } else {
+            throw e;
+          }
+        }
       } else {
         const linha = await criarEscalaRemota(payload, auth.userId!, "rascunho");
         if (escalaAtualId && !origemRemota) {
@@ -656,8 +667,20 @@ export function ScheduleView({
     setErroEnvio(null);
     try {
       if (origemRemota && escalaAtualId) {
-        const novoStatus = statusAtual === "devolvida" ? "aguardando_aprovacao" : "aguardando_aprovacao";
-        await atualizarEscalaRemota(escalaAtualId, { payload, status: novoStatus });
+        try {
+          await atualizarEscalaRemota(escalaAtualId, {
+            payload,
+            status: "aguardando_aprovacao",
+          });
+        } catch (e) {
+          // a escala foi excluída da nuvem: recria como nova e envia
+          if (e instanceof ErroEscalaRemota && e.motivo === "inexistente") {
+            const linha = await criarEscalaRemota(payload, auth.userId);
+            setRascunho((r) => ({ ...r, escalaAtualId: linha.id, origemRemota: true }));
+          } else {
+            throw e;
+          }
+        }
       } else {
         const linha = await criarEscalaRemota(payload, auth.userId);
         if (escalaAtualId) {
