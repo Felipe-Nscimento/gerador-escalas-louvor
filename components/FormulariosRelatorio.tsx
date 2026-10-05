@@ -7,6 +7,8 @@ import {
   formatarInstagram,
   formatarWhatsapp,
   NOMES_MESES,
+  resumoSimNao,
+  rotulosTrajetoria,
   STATUS_FORMULARIO_LABEL,
 } from "@/lib/formularios";
 import type { InstrumentoOpcao } from "./FormularioCadastroForm";
@@ -138,7 +140,7 @@ export function FormulariosRelatorio({
 
   const colunas =
     tipo === "completo"
-      ? ["Foto", "Nome", "WhatsApp", "Instagram", "Endereço", "Aniversário", "Instrumentos", "Status"]
+      ? ["Foto", "Nome", "WhatsApp", "Instagram", "Endereço", "Aniversário", "Instrumentos", "Igreja", "Status"]
       : tipo === "aniversario"
       ? ["Foto", "Nome", "Data de aniversário"]
       : ["Foto", "Nome", "WhatsApp", "Instagram"];
@@ -221,6 +223,17 @@ export function FormulariosRelatorio({
                       <td style={td}>{f.endereco || "—"}</td>
                       <td style={td}>{formatarDataBR(f.data_aniversario) || "—"}</td>
                       <td style={td}>{insts.length > 0 ? insts.join(", ") : "—"}</td>
+                      <td style={{ ...td, fontSize: 10, lineHeight: 1.35 }}>
+                        <div>
+                          <b>Célula:</b> {resumoSimNao(f.participa_celula, f.celula_nome) || "—"}
+                        </div>
+                        <div>
+                          <b>Trajetória:</b> {rotulosTrajetoria(f.trajetoria).join(", ") || "—"}
+                        </div>
+                        <div>
+                          <b>Ministério:</b> {resumoSimNao(f.serve_ministerio, f.ministerio_nome) || "—"}
+                        </div>
+                      </td>
                       <td style={td}>{STATUS_FORMULARIO_LABEL[f.status]}</td>
                     </>
                   )}

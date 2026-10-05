@@ -8,6 +8,7 @@ import { Input } from "./ui/Input";
 import {
   DADOS_FORMULARIO_VAZIOS,
   DadosFormulario,
+  ETAPAS_TRAJETORIA,
   hojeISO,
   mascararWhatsapp,
   mensagemErro,
@@ -41,6 +42,46 @@ interface Props {
 
 const classeCampo = (grande?: boolean) => (grande ? "py-3.5 text-base" : "");
 
+/** Botões Sim / Não. Tocar de novo na opção marcada desmarca (volta a "não respondeu"). */
+function SimNao({
+  valor,
+  onChange,
+  grande,
+}: {
+  valor: boolean | null;
+  onChange: (v: boolean | null) => void;
+  grande?: boolean;
+}) {
+  const classe = (ativo: boolean) =>
+    `flex-1 rounded-full border px-4 font-semibold transition-colors ${
+      grande ? "py-3 text-base" : "py-2 text-sm"
+    } ${
+      ativo
+        ? "bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-white"
+        : "border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--border))]/40"
+    }`;
+  return (
+    <div className="flex gap-2">
+      <button
+        type="button"
+        aria-pressed={valor === true}
+        onClick={() => onChange(valor === true ? null : true)}
+        className={classe(valor === true)}
+      >
+        Sim
+      </button>
+      <button
+        type="button"
+        aria-pressed={valor === false}
+        onClick={() => onChange(valor === false ? null : false)}
+        className={classe(valor === false)}
+      >
+        Não
+      </button>
+    </div>
+  );
+}
+
 export function FormularioCadastroForm({
   instrumentos,
   valoresIniciais,
@@ -57,6 +98,11 @@ export function FormularioCadastroForm({
   const [endereco, setEndereco] = useState(inicial.endereco);
   const [dataAniversario, setDataAniversario] = useState(inicial.dataAniversario);
   const [selecionados, setSelecionados] = useState<string[]>(inicial.instrumentos);
+  const [participaCelula, setParticipaCelula] = useState<boolean | null>(inicial.participaCelula);
+  const [celulaNome, setCelulaNome] = useState(inicial.celulaNome);
+  const [trajetoria, setTrajetoria] = useState<string[]>(inicial.trajetoria);
+  const [serveMinisterio, setServeMinisterio] = useState<boolean | null>(inicial.serveMinisterio);
+  const [ministerioNome, setMinisterioNome] = useState(inicial.ministerioNome);
   const [buscaInstrumento, setBuscaInstrumento] = useState("");
 
   const [fotoNova, setFotoNova] = useState<FotoPreparada | null>(null);
@@ -106,6 +152,10 @@ export function FormularioCadastroForm({
     setFotoRemovida(true);
   }
 
+  function alternarEtapa(id: string) {
+    setTrajetoria((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   function alternarInstrumento(id: string) {
     setSelecionados((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
@@ -124,6 +174,11 @@ export function FormularioCadastroForm({
       endereco,
       dataAniversario,
       instrumentos: selecionados,
+      participaCelula,
+      celulaNome,
+      trajetoria,
+      serveMinisterio,
+      ministerioNome,
     };
     const problema = validarDadosFormulario(dados);
     if (problema) {
@@ -316,6 +371,51 @@ export function FormularioCadastroForm({
               )}
             </div>
           </div>
+        )}
+      </div>
+
+      <div>
+        <label className={rotulo}>Participa de célula?</label>
+        <SimNao valor={participaCelula} onChange={setParticipaCelula} grande={grande} />
+        {participaCelula && (
+          <Input
+            className={`mt-2 ${campo}`}
+            value={celulaNome}
+            onChange={(e) => setCelulaNome(e.target.value)}
+            placeholder="Qual célula?"
+            maxLength={100}
+            aria-label="Qual célula?"
+          />
+        )}
+      </div>
+
+      <div>
+        <label className={rotulo}>Sua trajetória na igreja</label>
+        <div className="rounded-xl border border-[hsl(var(--border))] p-3">
+          {ETAPAS_TRAJETORIA.map((etapa) => (
+            <Checkbox
+              key={etapa.id}
+              label={etapa.label}
+              checked={trajetoria.includes(etapa.id)}
+              onChange={() => alternarEtapa(etapa.id)}
+              className={grande ? "py-2.5" : ""}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className={rotulo}>Serve em algum ministério da igreja?</label>
+        <SimNao valor={serveMinisterio} onChange={setServeMinisterio} grande={grande} />
+        {serveMinisterio && (
+          <Input
+            className={`mt-2 ${campo}`}
+            value={ministerioNome}
+            onChange={(e) => setMinisterioNome(e.target.value)}
+            placeholder="Qual ministério?"
+            maxLength={100}
+            aria-label="Qual ministério?"
+          />
         )}
       </div>
 

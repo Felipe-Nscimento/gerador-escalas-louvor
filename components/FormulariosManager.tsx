@@ -51,6 +51,8 @@ import {
   linkInstagram,
   linkWhatsAppConvite,
   mensagemErro,
+  resumoSimNao,
+  rotulosTrajetoria,
   STATUS_FORMULARIO_LABEL,
   urlDoFormulario,
   DadosFormulario,
@@ -619,6 +621,11 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
                       endereco: editor.formulario.endereco ?? "",
                       dataAniversario: editor.formulario.data_aniversario ?? "",
                       instrumentos: editor.formulario.instrumentos,
+                      participaCelula: editor.formulario.participa_celula,
+                      celulaNome: editor.formulario.celula_nome ?? "",
+                      trajetoria: editor.formulario.trajetoria,
+                      serveMinisterio: editor.formulario.serve_ministerio,
+                      ministerioNome: editor.formulario.ministerio_nome ?? "",
                     }
                   : undefined
               }
@@ -744,6 +751,18 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
                         <p>
                           <span className="text-[hsl(var(--muted))]">Instrumentos:</span>{" "}
                           {insts.length > 0 ? insts.join(", ") : "—"}
+                        </p>
+                        <p>
+                          <span className="text-[hsl(var(--muted))]">Célula:</span>{" "}
+                          {resumoSimNao(f.participa_celula, f.celula_nome) || "—"}
+                        </p>
+                        <p>
+                          <span className="text-[hsl(var(--muted))]">Trajetória:</span>{" "}
+                          {rotulosTrajetoria(f.trajetoria).join(", ") || "—"}
+                        </p>
+                        <p>
+                          <span className="text-[hsl(var(--muted))]">Ministério:</span>{" "}
+                          {resumoSimNao(f.serve_ministerio, f.ministerio_nome) || "—"}
                         </p>
                         <p>
                           <span className="text-[hsl(var(--muted))]">Status:</span> {STATUS_FORMULARIO_LABEL[f.status]}

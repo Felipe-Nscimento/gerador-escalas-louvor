@@ -5,6 +5,7 @@ import {
   gerarToken,
   gerarUuid,
   DIAS_VALIDADE_LINK,
+  ETAPAS_TRAJETORIA,
   normalizarInstagram,
   normalizarNome,
   normalizarWhatsapp,
@@ -31,6 +32,11 @@ interface LinhaFormulario {
   data_aniversario: string | null;
   foto_path: string | null;
   integrante_id: string | null;
+  participa_celula: boolean | null;
+  celula_nome: string | null;
+  trajetoria: string[] | null;
+  serve_ministerio: boolean | null;
+  ministerio_nome: string | null;
   formularios_cadastro_instrumentos?: { instrumento_id: string }[];
 }
 
@@ -62,6 +68,11 @@ function linhaParaFormulario(l: LinhaFormulario): FormularioCadastro {
     foto_url: urlPublicaFoto(l.foto_path),
     integrante_id: l.integrante_id,
     instrumentos: (l.formularios_cadastro_instrumentos ?? []).map((i) => i.instrumento_id),
+    participa_celula: l.participa_celula ?? null,
+    celula_nome: l.celula_nome ?? null,
+    trajetoria: l.trajetoria ?? [],
+    serve_ministerio: l.serve_ministerio ?? null,
+    ministerio_nome: l.ministerio_nome ?? null,
   };
 }
 
@@ -72,6 +83,12 @@ function dadosParaColunas(d: DadosFormulario) {
     instagram: normalizarInstagram(d.instagram),
     endereco: d.endereco.trim() || null,
     data_aniversario: d.dataAniversario || null,
+    participa_celula: d.participaCelula,
+    // o "qual" só vale quando a resposta é Sim
+    celula_nome: d.participaCelula ? d.celulaNome.trim().replace(/\s+/g, " ") || null : null,
+    trajetoria: ETAPAS_TRAJETORIA.filter((e) => d.trajetoria.includes(e.id)).map((e) => e.id),
+    serve_ministerio: d.serveMinisterio,
+    ministerio_nome: d.serveMinisterio ? d.ministerioNome.trim().replace(/\s+/g, " ") || null : null,
   };
 }
 
@@ -293,6 +310,11 @@ export async function enviarFormularioPublico(
     p_data_aniversario: c.data_aniversario,
     p_foto_path: fotoPath,
     p_instrumentos: dados.instrumentos,
+    p_participa_celula: c.participa_celula,
+    p_celula_nome: c.celula_nome,
+    p_trajetoria: c.trajetoria,
+    p_serve_ministerio: c.serve_ministerio,
+    p_ministerio_nome: c.ministerio_nome,
   });
   if (error) throw error;
   const r = data as { ok: boolean; motivo?: string };

@@ -32,6 +32,32 @@ export interface FormularioCadastro {
   foto_url: string | null;
   integrante_id: string | null;
   instrumentos: string[]; // ids reais da tabela instrumentos
+  participa_celula: boolean | null; // null = não respondeu
+  celula_nome: string | null;
+  trajetoria: string[]; // ids de ETAPAS_TRAJETORIA
+  serve_ministerio: boolean | null;
+  ministerio_nome: string | null;
+}
+
+/** Etapas da trajetória na igreja (checklist). O id é o valor gravado no banco. */
+export const ETAPAS_TRAJETORIA = [
+  { id: "acompanhamento_inicial", label: "Acompanhamento inicial" },
+  { id: "cafe_com_pastor", label: "Café com pastor" },
+  { id: "estacao_dna", label: "Estação DNA" },
+  { id: "batismo", label: "Batismo" },
+] as const;
+
+const IDS_TRAJETORIA: string[] = ETAPAS_TRAJETORIA.map((e) => e.id);
+
+export function rotulosTrajetoria(ids: string[]): string[] {
+  return ETAPAS_TRAJETORIA.filter((e) => ids.includes(e.id)).map((e) => e.label);
+}
+
+/** "Sim — Nome", "Sim", "Não" ou "" (não respondeu). */
+export function resumoSimNao(resposta: boolean | null, qual: string | null): string {
+  if (resposta === null) return "";
+  if (!resposta) return "Não";
+  return qual ? `Sim — ${qual}` : "Sim";
 }
 
 /** Valores digitados no formulário (ainda não normalizados). */
@@ -42,6 +68,11 @@ export interface DadosFormulario {
   endereco: string;
   dataAniversario: string; // YYYY-MM-DD ou ""
   instrumentos: string[];
+  participaCelula: boolean | null; // null = não respondeu
+  celulaNome: string;
+  trajetoria: string[];
+  serveMinisterio: boolean | null;
+  ministerioNome: string;
 }
 
 export const DADOS_FORMULARIO_VAZIOS: DadosFormulario = {
@@ -51,6 +82,11 @@ export const DADOS_FORMULARIO_VAZIOS: DadosFormulario = {
   endereco: "",
   dataAniversario: "",
   instrumentos: [],
+  participaCelula: null,
+  celulaNome: "",
+  trajetoria: [],
+  serveMinisterio: null,
+  ministerioNome: "",
 };
 
 export const DIAS_VALIDADE_LINK = 14;
@@ -189,6 +225,9 @@ export function validarDadosFormulario(d: DadosFormulario): string | null {
       return "Data de aniversário inválida.";
     }
   }
+  if (d.celulaNome.trim().length > 100) return "O nome da célula está muito longo (máximo 100 caracteres).";
+  if (d.ministerioNome.trim().length > 100) return "O nome do ministério está muito longo (máximo 100 caracteres).";
+  if (d.trajetoria.some((t) => !IDS_TRAJETORIA.includes(t))) return "Etapa da trajetória inválida.";
   return null;
 }
 
@@ -262,6 +301,9 @@ const MOTIVOS_PUBLICOS: Record<string, string> = {
   instrumento_inexistente:
     "Um dos instrumentos escolhidos não existe mais. Atualize a página e escolha novamente.",
   foto_invalida: "Não foi possível usar essa foto. Tente enviar outra.",
+  celula_invalida: "Confira o nome da célula (máximo 100 caracteres).",
+  ministerio_invalido: "Confira o nome do ministério (máximo 100 caracteres).",
+  trajetoria_invalida: "Confira as etapas da trajetória marcadas.",
 };
 
 export function mensagemMotivoPublico(motivo: string | undefined): string {
