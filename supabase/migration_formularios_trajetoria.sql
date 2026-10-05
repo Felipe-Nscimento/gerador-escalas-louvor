@@ -4,7 +4,7 @@
 -- recriaria a versão antiga da função de envio).
 --
 -- Acrescenta ao Formulário de Cadastro:
---   * se participa de célula e qual
+--   * se participa de célula, qual e o nome do líder da célula
 --   * trajetória na igreja (checklist): Acompanhamento inicial, Café com pastor,
 --     Estação DNA e Batismo
 --   * se serve em algum ministério da igreja e qual
@@ -12,6 +12,7 @@
 alter table public.formularios_cadastro
   add column if not exists participa_celula boolean,
   add column if not exists celula_nome text,
+  add column if not exists celula_lider text,
   add column if not exists trajetoria text[] not null default '{}',
   add column if not exists serve_ministerio boolean,
   add column if not exists ministerio_nome text;
@@ -19,6 +20,10 @@ alter table public.formularios_cadastro
 alter table public.formularios_cadastro drop constraint if exists formularios_celula_ok;
 alter table public.formularios_cadastro add constraint formularios_celula_ok
   check (celula_nome is null or char_length(celula_nome) <= 100);
+
+alter table public.formularios_cadastro drop constraint if exists formularios_celula_lider_ok;
+alter table public.formularios_cadastro add constraint formularios_celula_lider_ok
+  check (celula_lider is null or char_length(celula_lider) <= 100);
 
 alter table public.formularios_cadastro drop constraint if exists formularios_ministerio_ok;
 alter table public.formularios_cadastro add constraint formularios_ministerio_ok
@@ -28,9 +33,11 @@ alter table public.formularios_cadastro drop constraint if exists formularios_tr
 alter table public.formularios_cadastro add constraint formularios_trajetoria_ok
   check (trajetoria <@ array['acompanhamento_inicial', 'cafe_com_pastor', 'estacao_dna', 'batismo']::text[]);
 
--- A função pública de envio ganha 5 parâmetros novos (com valor padrão, então
+-- A função pública de envio ganha parâmetros novos (com valor padrão, então
 -- páginas antigas abertas no celular continuam conseguindo enviar).
+-- As versões anteriores são removidas para não ficarem duas funções com o mesmo nome.
 drop function if exists public.formulario_publico_enviar(text, text, text, text, text, date, text, text[]);
+drop function if exists public.formulario_publico_enviar(text, text, text, text, text, date, text, text[], boolean, text, text[], boolean, text);
 
 create or replace function public.formulario_publico_enviar(
   p_token text,
@@ -45,7 +52,8 @@ create or replace function public.formulario_publico_enviar(
   p_celula_nome text default null,
   p_trajetoria text[] default '{}',
   p_serve_ministerio boolean default null,
-  p_ministerio_nome text default null
+  p_ministerio_nome text default null,
+  p_celula_lider text default null
 ) returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   f public.formularios_cadastro%rowtype;
@@ -55,6 +63,7 @@ declare
   v_end text;
   v_ids text[];
   v_cel text;
+  v_lider text;
   v_min text;
   v_traj text[];
 begin
@@ -120,6 +129,13 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'celula_invalida');
   end if;
 
+  v_lider := case when p_participa_celula is true
+                  then nullif(btrim(regexp_replace(coalesce(p_celula_lider, ''), '\s+', ' ', 'g')), '')
+                  else null end;
+  if v_lider is not null and char_length(v_lider) > 100 then
+    return jsonb_build_object('ok', false, 'motivo', 'celula_invalida');
+  end if;
+
   v_min := case when p_serve_ministerio is true
                 then nullif(btrim(regexp_replace(coalesce(p_ministerio_nome, ''), '\s+', ' ', 'g')), '')
                 else null end;
@@ -153,6 +169,7 @@ begin
     foto_path = p_foto_path,
     participa_celula = p_participa_celula,
     celula_nome = v_cel,
+    celula_lider = v_lider,
     trajetoria = v_traj,
     serve_ministerio = p_serve_ministerio,
     ministerio_nome = v_min,
@@ -167,5 +184,5 @@ begin
 end;
 $$;
 
-revoke all on function public.formulario_publico_enviar(text, text, text, text, text, date, text, text[], boolean, text, text[], boolean, text) from public;
-grant execute on function public.formulario_publico_enviar(text, text, text, text, text, date, text, text[], boolean, text, text[], boolean, text) to anon, authenticated;
+revoke all on function public.formulario_publico_enviar(text, text, text, text, text, date, text, text[], boolean, text, text[], boolean, text, text) from public;
+grant execute on function public.formulario_publico_enviar(text, text, text, text, text, date, text, text[], boolean, text, text[], boolean, text, text) to anon, authenticated;

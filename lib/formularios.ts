@@ -34,6 +34,7 @@ export interface FormularioCadastro {
   instrumentos: string[]; // ids reais da tabela instrumentos
   participa_celula: boolean | null; // null = não respondeu
   celula_nome: string | null;
+  celula_lider: string | null; // nome do líder da célula
   trajetoria: string[]; // ids de ETAPAS_TRAJETORIA
   serve_ministerio: boolean | null;
   ministerio_nome: string | null;
@@ -53,6 +54,14 @@ export function rotulosTrajetoria(ids: string[]): string[] {
   return ETAPAS_TRAJETORIA.filter((e) => ids.includes(e.id)).map((e) => e.label);
 }
 
+/** Célula: "Sim — Nome (líder: Fulano)", "Sim", "Não" ou "" (não respondeu). */
+export function resumoCelula(
+  f: Pick<FormularioCadastro, "participa_celula" | "celula_nome" | "celula_lider">
+): string {
+  const base = resumoSimNao(f.participa_celula, f.celula_nome);
+  return base && f.participa_celula && f.celula_lider ? `${base} (líder: ${f.celula_lider})` : base;
+}
+
 /** "Sim — Nome", "Sim", "Não" ou "" (não respondeu). */
 export function resumoSimNao(resposta: boolean | null, qual: string | null): string {
   if (resposta === null) return "";
@@ -70,6 +79,7 @@ export interface DadosFormulario {
   instrumentos: string[];
   participaCelula: boolean | null; // null = não respondeu
   celulaNome: string;
+  celulaLider: string;
   trajetoria: string[];
   serveMinisterio: boolean | null;
   ministerioNome: string;
@@ -84,6 +94,7 @@ export const DADOS_FORMULARIO_VAZIOS: DadosFormulario = {
   instrumentos: [],
   participaCelula: null,
   celulaNome: "",
+  celulaLider: "",
   trajetoria: [],
   serveMinisterio: null,
   ministerioNome: "",
@@ -226,6 +237,7 @@ export function validarDadosFormulario(d: DadosFormulario): string | null {
     }
   }
   if (d.celulaNome.trim().length > 100) return "O nome da célula está muito longo (máximo 100 caracteres).";
+  if (d.celulaLider.trim().length > 100) return "O nome do líder da célula está muito longo (máximo 100 caracteres).";
   if (d.ministerioNome.trim().length > 100) return "O nome do ministério está muito longo (máximo 100 caracteres).";
   if (d.trajetoria.some((t) => !IDS_TRAJETORIA.includes(t))) return "Etapa da trajetória inválida.";
   return null;
@@ -301,8 +313,9 @@ const MOTIVOS_PUBLICOS: Record<string, string> = {
   instrumento_inexistente:
     "Um dos instrumentos escolhidos não existe mais. Atualize a página e escolha novamente.",
   foto_invalida: "Não foi possível usar essa foto. Tente enviar outra.",
-  celula_invalida: "Confira o nome da célula (máximo 100 caracteres).",
+  celula_invalida: "Confira o nome da célula e do líder (máximo 100 caracteres cada).",
   ministerio_invalido: "Confira o nome do ministério (máximo 100 caracteres).",
+  celula_lider_invalido: "Confira o nome do líder da célula (máximo 100 caracteres).",
   trajetoria_invalida: "Confira as etapas da trajetória marcadas.",
 };
 
