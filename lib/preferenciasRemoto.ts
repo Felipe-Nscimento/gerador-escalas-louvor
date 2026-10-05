@@ -1,6 +1,28 @@
 import { supabase } from "./supabase";
 
 const CHAVE_ORDEM_FUNCOES = "ordem_funcoes";
+const CHAVE_NOME_EQUIPE = "nome_equipe";
+
+/** Nome da igreja/equipe usado no título dos PDFs. `undefined` = nunca foi salvo. */
+export async function carregarNomeEquipeRemoto(): Promise<string | undefined> {
+  if (!supabase) return undefined;
+  const { data, error } = await supabase
+    .from("preferencias_app")
+    .select("valor")
+    .eq("chave", CHAVE_NOME_EQUIPE)
+    .maybeSingle();
+  if (error) throw error;
+  const valor = (data as { valor: unknown } | null)?.valor;
+  return typeof valor === "string" ? valor : undefined;
+}
+
+export async function salvarNomeEquipeRemoto(nome: string, userId: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase não configurado.");
+  const { error } = await supabase
+    .from("preferencias_app")
+    .upsert({ chave: CHAVE_NOME_EQUIPE, valor: nome, updated_by: userId }, { onConflict: "chave" });
+  if (error) throw error;
+}
 
 /**
  * Lê a ordem das funções salva na nuvem.

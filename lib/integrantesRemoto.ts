@@ -11,6 +11,9 @@ interface LinhaIntegrante {
   nome_exibicao: string | null;
   telefone: string | null;
   email: string | null;
+  instagram: string | null;
+  endereco: string | null;
+  data_aniversario: string | null;
   foto: string | null;
   ativo: boolean;
   funcoes: string[];
@@ -28,6 +31,9 @@ function linhaParaIntegrante(l: LinhaIntegrante): Integrante {
     nomeExibicao: l.nome_exibicao ?? undefined,
     telefone: l.telefone ?? undefined,
     email: l.email ?? undefined,
+    instagram: l.instagram ?? undefined,
+    endereco: l.endereco ?? undefined,
+    dataAniversario: l.data_aniversario ?? undefined,
     foto: l.foto ?? undefined,
     ativo: l.ativo,
     funcoes: l.funcoes ?? [],
@@ -46,6 +52,9 @@ function integranteParaColunas(patch: Partial<Integrante>): Record<string, unkno
   if (patch.nomeExibicao !== undefined) colunas.nome_exibicao = patch.nomeExibicao ?? null;
   if (patch.telefone !== undefined) colunas.telefone = patch.telefone ?? null;
   if (patch.email !== undefined) colunas.email = patch.email ?? null;
+  if (patch.instagram !== undefined) colunas.instagram = patch.instagram || null;
+  if (patch.endereco !== undefined) colunas.endereco = patch.endereco || null;
+  if (patch.dataAniversario !== undefined) colunas.data_aniversario = patch.dataAniversario || null;
   if (patch.foto !== undefined) colunas.foto = patch.foto ?? null;
   if (patch.ativo !== undefined) colunas.ativo = patch.ativo;
   if (patch.funcoes !== undefined) colunas.funcoes = patch.funcoes;

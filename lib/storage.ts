@@ -10,6 +10,7 @@ const KEYS = {
   tema: "louvor:tema",
   escalaAtual: "louvor:escalaAtual",
   ordemFuncoes: "louvor:ordemFuncoes",
+  nomeEquipe: "louvor:nomeEquipe",
 };
 
 export { KEYS };
