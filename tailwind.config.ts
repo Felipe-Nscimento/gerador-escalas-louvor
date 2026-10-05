@@ -20,7 +20,7 @@ const config: Config = {
       },
       borderRadius: {
         xl: "1rem",
-        "2xl": "1.25rem",
+        "2xl": "1.5rem",
       },
     },
   },
