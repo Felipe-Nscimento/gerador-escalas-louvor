@@ -10,6 +10,7 @@ import {
   Sun,
   Music,
   Music2,
+  ClipboardList,
 } from "lucide-react";
 import { usePersistedState, KEYS, uid } from "@/lib/storage";
 import {
@@ -43,8 +44,10 @@ import { InstrumentsManager } from "@/components/InstrumentsManager";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ScheduleView } from "@/components/ScheduleView";
 import { HistoryView } from "@/components/HistoryView";
+import { FormulariosManager } from "@/components/FormulariosManager";
+import { FormularioCadastro } from "@/lib/formularios";
 
-type Aba = "integrantes" | "instrumentos" | "config" | "escala" | "historico";
+type Aba = "integrantes" | "instrumentos" | "formularios" | "config" | "escala" | "historico";
 
 const INTEGRANTES_INICIAIS: Integrante[] = [
   { id: uid(), nome: "Felipe", funcoes: ["voz", "violao"] },
@@ -69,6 +72,7 @@ const CONFIG_INICIAL: ConfiguracaoEscala = {
 const ABAS: { id: Aba; label: string; icon: typeof Users }[] = [
   { id: "integrantes", label: "Integrantes", icon: Users },
   { id: "instrumentos", label: "Instrumentos", icon: Music2 },
+  { id: "formularios", label: "Formulários", icon: ClipboardList },
   { id: "config", label: "Configurações", icon: SlidersHorizontal },
   { id: "escala", label: "Escala", icon: CalendarDays },
   { id: "historico", label: "Histórico", icon: History },
@@ -100,6 +104,17 @@ export default function Home() {
   );
 
   const auth = useAuth();
+  // cadastro vindo da aba Formulários ("Usar como Integrante")
+  const [formularioParaImportar, setFormularioParaImportar] =
+    useState<FormularioCadastro | null>(null);
+  // A aba só aparece para líder/montador (ou enquanto ainda não há login/perfil
+  // carregado, para dar acesso ao login). A proteção real está no banco (RLS).
+  const mostrarAbaFormularios =
+    auth.supabaseConfigurado &&
+    (!auth.logado ||
+      !auth.perfil ||
+      auth.perfil.role === "lider" ||
+      auth.perfil.role === "montador");
   const [remotas, setRemotas] = useState<EscalaRemota[]>([]);
   const [integrantesRemotos, setIntegrantesRemotos] = useState<Integrante[]>([]);
   const [integrantesRemotosCarregados, setIntegrantesRemotosCarregados] = useState(false);
@@ -302,11 +317,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/90 backdrop-blur no-print">
+      <header className="sticky top-0 z-10 bg-[hsl(var(--card))] shadow-[0_4px_20px_rgba(0,0,0,0.07)] no-print">
         <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-[hsl(var(--primary))]/15 flex items-center justify-center">
-              <Music className="h-4 w-4 text-[hsl(var(--primary))]" />
+            <div className="h-8 w-8 rounded-xl bg-[hsl(var(--accent))]/15 flex items-center justify-center">
+              <Music className="h-4 w-4 text-[hsl(var(--accent))]" />
             </div>
             <div>
               <p className="text-sm font-semibold leading-tight">
@@ -330,7 +345,7 @@ export default function Home() {
           </button>
         </div>
         <nav className="max-w-3xl mx-auto px-4 pb-2 flex gap-1 overflow-x-auto">
-          {ABAS.map(({ id, label, icon: Icon }) => (
+          {ABAS.filter(({ id }) => id !== "formularios" || mostrarAbaFormularios).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setAba(id)}
@@ -354,6 +369,8 @@ export default function Home() {
             instrumentos={instrumentosEfetivos}
             historico={historico}
             auth={auth}
+            formularioParaImportar={formularioParaImportar}
+            onFormularioImportado={() => setFormularioParaImportar(null)}
           />
         )}
         {aba === "instrumentos" && (
@@ -361,6 +378,15 @@ export default function Home() {
             instrumentos={instrumentosEfetivos}
             setInstrumentos={setInstrumentos}
             auth={auth}
+          />
+        )}
+        {aba === "formularios" && (
+          <FormulariosManager
+            auth={auth}
+            onUsarComoIntegrante={(f) => {
+              setFormularioParaImportar(f);
+              setAba("integrantes");
+            }}
           />
         )}
         {aba === "config" && (

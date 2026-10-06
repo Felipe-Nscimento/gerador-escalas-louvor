@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/dm-sans";
 import "./globals.css";
 import { RegistrarServiceWorker } from "@/components/RegistrarServiceWorker";
 
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#7c5ce6",
+  themeColor: "#1a3a6b",
   width: "device-width",
   initialScale: 1,
 };

@@ -109,7 +109,10 @@ export interface Integrante {
   nomeExibicao?: string;
   telefone?: string;
   email?: string;
-  foto?: string; // data URL (já redimensionada/comprimida no upload)
+  instagram?: string; // sem "@" (vem do Formulário de Cadastro ou digitado)
+  endereco?: string;
+  dataAniversario?: string; // YYYY-MM-DD
+  foto?: string; // data URL (upload manual) OU URL do Supabase Storage (vinda do Formulário de Cadastro)
   ativo?: boolean; // undefined é tratado como ativo (compatível com integrantes já existentes)
   niveis?: NivelPorFuncao[];
   observacoesMusicais?: string;

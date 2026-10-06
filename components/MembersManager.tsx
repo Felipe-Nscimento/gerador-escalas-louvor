@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -13,6 +13,8 @@ import {
   Camera,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent } from "./ui/Card";
@@ -39,6 +41,15 @@ import {
   criarIntegranteRemoto,
   excluirIntegranteRemoto,
 } from "@/lib/integrantesRemoto";
+import { listarFormularios, marcarFormularioComoUtilizado } from "@/lib/formulariosRemoto";
+import {
+  FormularioCadastro,
+  formatarInstagram,
+  formatarWhatsapp,
+  hojeISO,
+  instagramValido,
+  normalizarInstagram,
+} from "@/lib/formularios";
 
 /** "YYYY-MM-DD" -> "DD/MM/AAAA", sem passar por Date (evita bug de fuso horário). */
 function formatarDataBR(iso: string): string {
@@ -54,6 +65,9 @@ interface Props {
   instrumentos: Instrumento[];
   historico?: EscalaSalva[];
   auth: ReturnType<typeof useAuth>;
+  /** Vem da aba Formulários ("Usar como Integrante"): abre um integrante novo já preenchido. */
+  formularioParaImportar?: FormularioCadastro | null;
+  onFormularioImportado?: () => void;
 }
 
 type FiltroStatus = "ativos" | "inativos" | "todos";
@@ -134,6 +148,8 @@ export function MembersManager({
   instrumentos,
   historico = [],
   auth,
+  formularioParaImportar = null,
+  onFormularioImportado,
 }: Props) {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -143,6 +159,14 @@ export function MembersManager({
   const [nomeExibicao, setNomeExibicao] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [dataAniversario, setDataAniversario] = useState("");
+  const [formularioOrigem, setFormularioOrigem] = useState<FormularioCadastro | null>(null);
+  const [mostrarPicker, setMostrarPicker] = useState(false);
+  const [formsPendentes, setFormsPendentes] = useState<FormularioCadastro[]>([]);
+  const [carregandoPicker, setCarregandoPicker] = useState(false);
+  const [erroPicker, setErroPicker] = useState<string | null>(null);
   const [foto, setFoto] = useState<string | undefined>(undefined);
   const [ativo, setAtivo] = useState(true);
   const [funcoes, setFuncoes] = useState<string[]>([]);
@@ -163,6 +187,11 @@ export function MembersManager({
     setNomeExibicao("");
     setTelefone("");
     setEmail("");
+    setInstagram("");
+    setEndereco("");
+    setDataAniversario("");
+    setFormularioOrigem(null);
+    setMostrarPicker(false);
     setFoto(undefined);
     setAtivo(true);
     setFuncoes([]);
@@ -185,6 +214,11 @@ export function MembersManager({
     setNomeExibicao(pessoa.nomeExibicao ?? "");
     setTelefone(pessoa.telefone ?? "");
     setEmail(pessoa.email ?? "");
+    setInstagram(pessoa.instagram ?? "");
+    setEndereco(pessoa.endereco ?? "");
+    setDataAniversario(pessoa.dataAniversario ?? "");
+    setFormularioOrigem(null);
+    setMostrarPicker(false);
     setFoto(pessoa.foto);
     setAtivo(pessoa.ativo ?? true);
     setFuncoes(pessoa.funcoes);
@@ -197,6 +231,51 @@ export function MembersManager({
     setErro(null);
     setMostrarForm(true);
   }
+
+  /**
+   * Preenche o formulário do integrante com um cadastro do Formulário.
+   * Só sobrescreve o que o cadastro realmente tem; a foto continua sendo a
+   * MESMA imagem do Storage (apenas a URL é reaproveitada, nada é duplicado).
+   * A pessoa revisa tudo antes de salvar.
+   */
+  function aplicarFormulario(f: FormularioCadastro) {
+    if (f.nome) setNome(f.nome);
+    if (f.whatsapp) setTelefone(formatarWhatsapp(f.whatsapp));
+    if (f.instagram) setInstagram(f.instagram);
+    if (f.endereco) setEndereco(f.endereco);
+    if (f.data_aniversario) setDataAniversario(f.data_aniversario);
+    if (f.foto_url) setFoto(f.foto_url);
+    const idsExistentes = new Set(instrumentos.map((i) => i.id));
+    const doFormulario = f.instrumentos.filter((id) => idsExistentes.has(id));
+    setFuncoes((prev) => Array.from(new Set([...prev, ...doFormulario])));
+    setFormularioOrigem(f);
+    setMostrarPicker(false);
+    setErro(null);
+  }
+
+  function abrirPicker() {
+    setMostrarPicker(true);
+    setErroPicker(null);
+    setCarregandoPicker(true);
+    listarFormularios()
+      .then((lista) => setFormsPendentes(lista.filter((f) => f.status === "pendente")))
+      .catch(() => setErroPicker("Não foi possível carregar os cadastros do formulário agora."))
+      .finally(() => setCarregandoPicker(false));
+  }
+
+  function importarDoFormulario() {
+    iniciarNovo();
+    abrirPicker();
+  }
+
+  // "Usar como Integrante" na aba Formulários: abre um integrante novo já preenchido
+  useEffect(() => {
+    if (!formularioParaImportar) return;
+    iniciarNovo();
+    aplicarFormulario(formularioParaImportar);
+    onFormularioImportado?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formularioParaImportar]);
 
   function alternarFuncao(id: string) {
     setFuncoes((prev) =>
@@ -385,6 +464,12 @@ export function MembersManager({
     if (email.trim() && !EMAIL_REGEX.test(email.trim())) {
       return "E-mail inválido.";
     }
+    if (!instagramValido(instagram)) {
+      return "Instagram inválido. Use apenas letras, números, ponto e sublinhado.";
+    }
+    if (dataAniversario && (dataAniversario < "1900-01-01" || dataAniversario > hojeISO())) {
+      return "Data de aniversário inválida.";
+    }
     if (funcoes.length === 0) {
       return "Selecione ao menos uma função ou instrumento.";
     }
@@ -446,6 +531,10 @@ export function MembersManager({
       nomeExibicao: nomeExibicao.trim() || undefined,
       telefone: telefone.trim() || undefined,
       email: email.trim() || undefined,
+      // "" (e não undefined) para que limpar o campo também limpe na nuvem
+      instagram: normalizarInstagram(instagram) ?? "",
+      endereco: endereco.trim(),
+      dataAniversario,
       foto,
       ativo,
       funcoes,
@@ -470,18 +559,31 @@ export function MembersManager({
     setTimeout(() => setSalvo(false), 2000);
 
     if (podeOnline) {
+      let sincronizou = false;
       try {
         if (editandoId) {
           await atualizarIntegranteRemoto(idFinal, dados);
         } else {
           await criarIntegranteRemoto(integranteCompleto, auth.userId!);
         }
+        sincronizou = true;
       } catch {
         setErroSync(
           "Não foi possível sincronizar esse integrante agora. Ele continua salvo neste aparelho."
         );
       }
+      // veio de um cadastro do Formulário: agora ele passa a "utilizado"
+      if (sincronizou && formularioOrigem) {
+        try {
+          await marcarFormularioComoUtilizado(formularioOrigem.id, idFinal);
+        } catch {
+          setErroSync(
+            "Integrante salvo, mas não foi possível marcar o cadastro do formulário como utilizado."
+          );
+        }
+      }
     }
+    setFormularioOrigem(null);
   }
 
   async function excluir(id: string) {
@@ -568,9 +670,20 @@ export function MembersManager({
               : ""}
           </p>
         </div>
-        <Button onClick={iniciarNovo} disabled={instrumentos.length === 0}>
-          <Plus className="h-4 w-4" /> Novo integrante
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {podeOnline && (
+            <Button
+              variant="secondary"
+              onClick={importarDoFormulario}
+              disabled={instrumentos.length === 0}
+            >
+              <ClipboardList className="h-4 w-4" /> Importar do formulário
+            </Button>
+          )}
+          <Button onClick={iniciarNovo} disabled={instrumentos.length === 0}>
+            <Plus className="h-4 w-4" /> Novo integrante
+          </Button>
+        </div>
       </div>
 
       {instrumentos.length === 0 && (
@@ -676,6 +789,100 @@ export function MembersManager({
                 />
               </div>
             </div>
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Instagram (opcional)
+                </label>
+                <Input
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  placeholder="@usuario"
+                  autoCapitalize="none"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Data de aniversário (opcional)
+                </label>
+                <Input
+                  type="date"
+                  value={dataAniversario}
+                  onChange={(e) => setDataAniversario(e.target.value)}
+                  min="1900-01-01"
+                  max={hojeISO()}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="text-sm font-medium mb-1.5 block">
+                  Endereço (opcional)
+                </label>
+                <Input
+                  value={endereco}
+                  onChange={(e) => setEndereco(e.target.value)}
+                  placeholder="Rua, número, bairro, cidade"
+                  maxLength={300}
+                />
+              </div>
+            </div>
+
+            {podeOnline && (
+              <div className="rounded-xl border border-[hsl(var(--border))] p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm">
+                    {formularioOrigem
+                      ? `Preenchido com o cadastro de ${formularioOrigem.nome}. Revise antes de salvar.`
+                      : "Já tem um cadastro enviado pelo formulário?"}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => (mostrarPicker ? setMostrarPicker(false) : abrirPicker())}
+                    className="text-sm font-medium text-[hsl(var(--primary))] hover:underline"
+                  >
+                    {mostrarPicker ? "Fechar lista" : "Usar cadastro do formulário"}
+                  </button>
+                </div>
+                {mostrarPicker && (
+                  <div className="space-y-2">
+                    {carregandoPicker && (
+                      <p className="flex items-center gap-2 text-sm text-[hsl(var(--muted))]">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Carregando...
+                      </p>
+                    )}
+                    {erroPicker && <p className="text-sm text-red-500">{erroPicker}</p>}
+                    {!carregandoPicker && !erroPicker && formsPendentes.length === 0 && (
+                      <p className="text-sm text-[hsl(var(--muted))]">
+                        Nenhum cadastro pendente no momento.
+                      </p>
+                    )}
+                    {formsPendentes.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex items-center gap-3 rounded-xl bg-[hsl(var(--border))]/30 p-2.5"
+                      >
+                        <Avatar foto={f.foto_url ?? undefined} nome={f.nome ?? "?"} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{f.nome}</p>
+                          <p className="text-xs text-[hsl(var(--muted))] truncate">
+                            {[
+                              f.whatsapp ? formatarWhatsapp(f.whatsapp) : "",
+                              f.instagram ? formatarInstagram(f.instagram) : "",
+                              f.instrumentos.map((id) => nomeInstrumento(id)).join(", "),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                        <Button size="sm" onClick={() => aplicarFormulario(f)}>
+                          Importar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <Checkbox
               label="Integrante ativo"
@@ -1164,6 +1371,24 @@ export function MembersManager({
                       <p>
                         <span className="text-[hsl(var(--muted))]">E-mail: </span>
                         {p.email}
+                      </p>
+                    )}
+                    {p.instagram && (
+                      <p>
+                        <span className="text-[hsl(var(--muted))]">Instagram: </span>
+                        {formatarInstagram(p.instagram)}
+                      </p>
+                    )}
+                    {p.dataAniversario && (
+                      <p>
+                        <span className="text-[hsl(var(--muted))]">Aniversário: </span>
+                        {formatarDataBR(p.dataAniversario)}
+                      </p>
+                    )}
+                    {p.endereco && (
+                      <p>
+                        <span className="text-[hsl(var(--muted))]">Endereço: </span>
+                        {p.endereco}
                       </p>
                     )}
                     {(p.niveis?.length ?? 0) > 0 && (
