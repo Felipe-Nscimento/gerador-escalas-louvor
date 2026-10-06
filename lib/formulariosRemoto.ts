@@ -32,6 +32,7 @@ interface LinhaFormulario {
   data_aniversario: string | null;
   foto_path: string | null;
   integrante_id: string | null;
+  link_multiplo: boolean | null;
   participa_celula: boolean | null;
   celula_nome: string | null;
   celula_lider: string | null;
@@ -69,6 +70,7 @@ function linhaParaFormulario(l: LinhaFormulario): FormularioCadastro {
     foto_url: urlPublicaFoto(l.foto_path),
     integrante_id: l.integrante_id,
     instrumentos: (l.formularios_cadastro_instrumentos ?? []).map((i) => i.instrumento_id),
+    link_multiplo: l.link_multiplo ?? false,
     participa_celula: l.participa_celula ?? null,
     celula_nome: l.celula_nome ?? null,
     celula_lider: l.celula_lider ?? null,
@@ -239,6 +241,7 @@ export async function gerarLinkFormulario(userId: string): Promise<FormularioCad
       status: "aguardando",
       token: gerarToken(),
       link_expira_em: expira,
+      link_multiplo: true, // o mesmo link pode ser enviado para várias pessoas
     })
     .select(SELECT_COM_INSTRUMENTOS)
     .single();

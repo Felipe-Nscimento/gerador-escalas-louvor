@@ -93,8 +93,9 @@ function Avatar({ f, tamanho = 44 }: { f: FormularioCadastro; tamanho?: number }
 
 function BadgeStatus({ f }: { f: FormularioCadastro }) {
   if (f.status === "aguardando") {
-    return linkExpirado(f) ? (
-      <Badge className="bg-red-500/10 text-red-500">🔴 Link expirado</Badge>
+    if (linkExpirado(f)) return <Badge className="bg-red-500/10 text-red-500">🔴 Link expirado</Badge>;
+    return f.link_multiplo ? (
+      <Badge className="bg-sky-500/10 text-sky-600">🔗 Link ativo</Badge>
     ) : (
       <Badge className="bg-slate-400/15 text-[hsl(var(--muted))]">⚪ Aguardando preenchimento</Badge>
     );
@@ -303,7 +304,9 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
   async function excluir(f: FormularioCadastro) {
     const mensagem =
       f.status === "aguardando"
-        ? "Excluir este link? Quem ainda não preencheu não conseguirá mais usá-lo."
+        ? f.link_multiplo
+          ? "Excluir este link? Ninguém mais conseguirá usá-lo. Os cadastros já enviados continuam na lista."
+          : "Excluir este link? Quem ainda não preencheu não conseguirá mais usá-lo."
         : f.status === "utilizado"
         ? `Excluir o cadastro de ${f.nome}? O integrante já criado NÃO será afetado e continua com a foto.`
         : `Excluir o cadastro de ${f.nome}? Isso também remove a foto enviada.`;
@@ -515,8 +518,8 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
               </Button>
             </div>
             <p className="text-xs text-[hsl(var(--muted))]">
-              Válido por {DIAS_VALIDADE_LINK} dias e pode ser preenchido uma única vez. Quem receber não precisa de
-              login e só vê o formulário.
+              Válido por {DIAS_VALIDADE_LINK} dias e pode ser enviado para várias pessoas: cada envio vira um cadastro
+              novo na lista. Quem receber não precisa de login e só vê o formulário.
             </p>
           </CardContent>
         </Card>
@@ -695,7 +698,7 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium truncate">
-                            {f.nome ?? "Link aguardando preenchimento"}
+                            {f.nome ?? (f.link_multiplo ? "Link do formulário (vale para várias pessoas)" : "Link aguardando preenchimento")}
                           </p>
                           <BadgeStatus f={f} />
                         </div>

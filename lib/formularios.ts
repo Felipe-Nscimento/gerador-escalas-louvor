@@ -32,6 +32,7 @@ export interface FormularioCadastro {
   foto_url: string | null;
   integrante_id: string | null;
   instrumentos: string[]; // ids reais da tabela instrumentos
+  link_multiplo: boolean; // link reutilizável: cada envio vira um cadastro novo
   participa_celula: boolean | null; // null = não respondeu
   celula_nome: string | null;
   celula_lider: string | null; // nome do líder da célula
@@ -100,7 +101,7 @@ export const DADOS_FORMULARIO_VAZIOS: DadosFormulario = {
   ministerioNome: "",
 };
 
-export const DIAS_VALIDADE_LINK = 14;
+export const DIAS_VALIDADE_LINK = 30;
 export const LIMITE_FOTO_ENTRADA_MB = 10;
 export const TIPOS_FOTO_ACEITOS = ["image/jpeg", "image/png", "image/webp"];
 const EXTENSOES_FOTO_ACEITAS = ["jpg", "jpeg", "png", "webp"];
@@ -315,6 +316,7 @@ const MOTIVOS_PUBLICOS: Record<string, string> = {
   foto_invalida: "Não foi possível usar essa foto. Tente enviar outra.",
   celula_invalida: "Confira o nome da célula e do líder (máximo 100 caracteres cada).",
   ministerio_invalido: "Confira o nome do ministério (máximo 100 caracteres).",
+  limite_atingido: "Este link atingiu o limite de cadastros. Peça um novo link para a equipe.",
   celula_lider_invalido: "Confira o nome do líder da célula (máximo 100 caracteres).",
   trajetoria_invalida: "Confira as etapas da trajetória marcadas.",
 };
