@@ -7,7 +7,10 @@ import {
   formatarInstagram,
   formatarWhatsapp,
   NOMES_MESES,
+<<<<<<< HEAD
   resumoCelula,
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
   resumoSimNao,
   rotulosTrajetoria,
   STATUS_FORMULARIO_LABEL,
@@ -226,7 +229,11 @@ export function FormulariosRelatorio({
                       <td style={td}>{insts.length > 0 ? insts.join(", ") : "—"}</td>
                       <td style={{ ...td, fontSize: 10, lineHeight: 1.35 }}>
                         <div>
+<<<<<<< HEAD
                           <b>Célula:</b> {resumoCelula(f) || "—"}
+=======
+                          <b>Célula:</b> {resumoSimNao(f.participa_celula, f.celula_nome) || "—"}
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
                         </div>
                         <div>
                           <b>Trajetória:</b> {rotulosTrajetoria(f.trajetoria).join(", ") || "—"}

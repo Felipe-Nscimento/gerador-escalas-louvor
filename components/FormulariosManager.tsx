@@ -51,7 +51,10 @@ import {
   linkInstagram,
   linkWhatsAppConvite,
   mensagemErro,
+<<<<<<< HEAD
   resumoCelula,
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
   resumoSimNao,
   rotulosTrajetoria,
   STATUS_FORMULARIO_LABEL,
@@ -624,7 +627,10 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
                       instrumentos: editor.formulario.instrumentos,
                       participaCelula: editor.formulario.participa_celula,
                       celulaNome: editor.formulario.celula_nome ?? "",
+<<<<<<< HEAD
                       celulaLider: editor.formulario.celula_lider ?? "",
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
                       trajetoria: editor.formulario.trajetoria,
                       serveMinisterio: editor.formulario.serve_ministerio,
                       ministerioNome: editor.formulario.ministerio_nome ?? "",
@@ -756,7 +762,11 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
                         </p>
                         <p>
                           <span className="text-[hsl(var(--muted))]">Célula:</span>{" "}
+<<<<<<< HEAD
                           {resumoCelula(f) || "—"}
+=======
+                          {resumoSimNao(f.participa_celula, f.celula_nome) || "—"}
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
                         </p>
                         <p>
                           <span className="text-[hsl(var(--muted))]">Trajetória:</span>{" "}

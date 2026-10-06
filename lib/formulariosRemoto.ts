@@ -34,7 +34,10 @@ interface LinhaFormulario {
   integrante_id: string | null;
   participa_celula: boolean | null;
   celula_nome: string | null;
+<<<<<<< HEAD
   celula_lider: string | null;
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
   trajetoria: string[] | null;
   serve_ministerio: boolean | null;
   ministerio_nome: string | null;
@@ -71,7 +74,10 @@ function linhaParaFormulario(l: LinhaFormulario): FormularioCadastro {
     instrumentos: (l.formularios_cadastro_instrumentos ?? []).map((i) => i.instrumento_id),
     participa_celula: l.participa_celula ?? null,
     celula_nome: l.celula_nome ?? null,
+<<<<<<< HEAD
     celula_lider: l.celula_lider ?? null,
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
     trajetoria: l.trajetoria ?? [],
     serve_ministerio: l.serve_ministerio ?? null,
     ministerio_nome: l.ministerio_nome ?? null,
@@ -88,7 +94,10 @@ function dadosParaColunas(d: DadosFormulario) {
     participa_celula: d.participaCelula,
     // o "qual" só vale quando a resposta é Sim
     celula_nome: d.participaCelula ? d.celulaNome.trim().replace(/\s+/g, " ") || null : null,
+<<<<<<< HEAD
     celula_lider: d.participaCelula ? d.celulaLider.trim().replace(/\s+/g, " ") || null : null,
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
     trajetoria: ETAPAS_TRAJETORIA.filter((e) => d.trajetoria.includes(e.id)).map((e) => e.id),
     serve_ministerio: d.serveMinisterio,
     ministerio_nome: d.serveMinisterio ? d.ministerioNome.trim().replace(/\s+/g, " ") || null : null,
@@ -318,7 +327,10 @@ export async function enviarFormularioPublico(
     p_trajetoria: c.trajetoria,
     p_serve_ministerio: c.serve_ministerio,
     p_ministerio_nome: c.ministerio_nome,
+<<<<<<< HEAD
     p_celula_lider: c.celula_lider,
+=======
+>>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
   });
   if (error) throw error;
   const r = data as { ok: boolean; motivo?: string };
