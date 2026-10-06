@@ -23,6 +23,7 @@ import {
   RascunhoAtual,
   REGRAS_PADRAO,
 } from "@/lib/types";
+import { AniversariantesAviso } from "@/components/AniversariantesAviso";
 import { useAuth } from "@/lib/useAuth";
 import {
   assinarEscalasRemotas,
@@ -109,6 +110,13 @@ export default function Home() {
     useState<FormularioCadastro | null>(null);
   // A aba só aparece para líder/montador (ou enquanto ainda não há login/perfil
   // carregado, para dar acesso ao login). A proteção real está no banco (RLS).
+  // Aviso de aniversariantes: só para quem está logado como líder ou montador
+  // (sem perfil carregado, não mostra).
+  const ehLiderOuMontador =
+    auth.supabaseConfigurado &&
+    auth.logado &&
+    (auth.perfil?.role === "lider" || auth.perfil?.role === "montador");
+
   const mostrarAbaFormularios =
     auth.supabaseConfigurado &&
     (!auth.logado ||
@@ -362,6 +370,7 @@ export default function Home() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
+        {ehLiderOuMontador && <AniversariantesAviso integrantes={integrantesEfetivos} />}
         {aba === "integrantes" && (
           <MembersManager
             integrantes={integrantesEfetivos}

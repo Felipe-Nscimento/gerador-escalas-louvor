@@ -11,6 +11,7 @@ const KEYS = {
   escalaAtual: "louvor:escalaAtual",
   ordemFuncoes: "louvor:ordemFuncoes",
   nomeEquipe: "louvor:nomeEquipe",
+  avisoAniversariantes: "louvor:avisoAniversariantes",
 };
 
 export { KEYS };
