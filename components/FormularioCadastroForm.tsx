@@ -100,10 +100,7 @@ export function FormularioCadastroForm({
   const [selecionados, setSelecionados] = useState<string[]>(inicial.instrumentos);
   const [participaCelula, setParticipaCelula] = useState<boolean | null>(inicial.participaCelula);
   const [celulaNome, setCelulaNome] = useState(inicial.celulaNome);
-<<<<<<< HEAD
   const [celulaLider, setCelulaLider] = useState(inicial.celulaLider);
-=======
->>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
   const [trajetoria, setTrajetoria] = useState<string[]>(inicial.trajetoria);
   const [serveMinisterio, setServeMinisterio] = useState<boolean | null>(inicial.serveMinisterio);
   const [ministerioNome, setMinisterioNome] = useState(inicial.ministerioNome);
@@ -180,10 +177,7 @@ export function FormularioCadastroForm({
       instrumentos: selecionados,
       participaCelula,
       celulaNome,
-<<<<<<< HEAD
       celulaLider,
-=======
->>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
       trajetoria,
       serveMinisterio,
       ministerioNome,
@@ -395,7 +389,6 @@ export function FormularioCadastroForm({
             aria-label="Qual célula?"
           />
         )}
-<<<<<<< HEAD
         {participaCelula && (
           <Input
             className={`mt-2 ${campo}`}
@@ -406,8 +399,6 @@ export function FormularioCadastroForm({
             aria-label="Nome do líder da célula"
           />
         )}
-=======
->>>>>>> 937b9a166b4aff8aebff9afe714d029b39f5723f
       </div>
 
       <div>
