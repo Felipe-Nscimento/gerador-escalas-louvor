@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { EfeitoAniversario } from "@/components/EfeitoAniversario";
 import { EscalaRemota, payloadValido } from "@/lib/escalasRemoto";
 import { ordenarFuncoes } from "@/lib/ordemFuncoes";
 import { unificarItens } from "@/lib/scheduleGenerator";
@@ -21,7 +22,8 @@ interface Linha {
   chave: string;
   nome: string;
   foto?: string;
-  instrumento: Instrumento;
+  instrumentos: Instrumento[]; // todas as funções da pessoa neste culto
+  aniversario?: string; // dd/mm, só quando faz aniversário no mês do culto
 }
 
 interface CardCulto {
@@ -76,6 +78,7 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
   const ordemFuncoes = useOrdemFuncoes(logado);
   const [hojeKey, setHojeKey] = useState<string | null>(null);
   const [atual, setAtual] = useState(0);
+  const [festa, setFesta] = useState<{ nome: string; diaMes: string } | null>(null);
   const trilhoRef = useRef<HTMLDivElement>(null);
   const posicionadoRef = useRef(false);
 
@@ -114,19 +117,32 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
           const inst = instVivos.get(instId) ?? snapInst.get(instId);
           if (inst) usados.push(inst);
         }
-        const linhas: Linha[] = [];
+        // uma entrada por pessoa: quem tem mais de uma função no culto aparece uma vez só,
+        // com todos os instrumentos (a ordem segue a primeira função da pessoa)
+        const porPessoa = new Map<string, Linha>();
+        const mesDoCulto = Number(dataKey.slice(5, 7));
         for (const inst of ordenarFuncoes(usados, ordemFuncoes)) {
           for (const pid of item.escalacao.atribuicoes[inst.id] ?? []) {
             if (!pid) continue;
+            const existente = porPessoa.get(pid);
+            if (existente) {
+              if (!existente.instrumentos.some((i) => i.id === inst.id)) existente.instrumentos.push(inst);
+              continue;
+            }
             const p = vivos.get(pid) ?? snapI.get(pid);
-            linhas.push({
-              chave: `${inst.id}|${pid}`,
+            const nasc = p?.dataAniversario;
+            const temAniversario =
+              !!nasc && /^\d{4}-\d{2}-\d{2}$/.test(nasc) && Number(nasc.slice(5, 7)) === mesDoCulto;
+            porPessoa.set(pid, {
+              chave: pid,
               nome: p ? p.nomeExibicao?.trim() || p.nome : "Integrante removido",
               foto: p?.foto,
-              instrumento: inst,
+              instrumentos: [inst],
+              aniversario: temAniversario ? `${nasc!.slice(8, 10)}/${nasc!.slice(5, 7)}` : undefined,
             });
           }
         }
+        const linhas = Array.from(porPessoa.values());
 
         porCulto.set(chave, {
           chave,
@@ -306,10 +322,27 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
                       >
                         <Foto nome={l.nome} foto={l.foto} />
                         <div className="min-w-0">
-                          <p className="text-[17px] font-semibold leading-tight break-words">{l.nome}</p>
-                          <p className="mt-0.5 text-[15px] leading-tight text-[hsl(var(--muted))] break-words">
-                            {l.instrumento.emoji} {l.instrumento.nome}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-[17px] font-semibold leading-tight break-words">{l.nome}</p>
+                            {l.aniversario && (
+                              <button
+                                type="button"
+                                onClick={() => setFesta({ nome: l.nome, diaMes: l.aniversario! })}
+                                aria-label={`Aniversário de ${l.nome} em ${l.aniversario}. Toque para parabenizar`}
+                                title="Aniversariante do mês — toque para parabenizar"
+                                className="h-8 w-8 shrink-0 rounded-full bg-[hsl(var(--accent))]/15 text-lg leading-none flex items-center justify-center transition-transform active:scale-90 hover:scale-110"
+                              >
+                                🎂
+                              </button>
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-[15px] leading-snug text-[hsl(var(--muted))] break-words">
+                            {l.instrumentos.map((inst) => (
+                              <p key={inst.id}>
+                                {inst.emoji} {inst.nome}
+                              </p>
+                            ))}
+                          </div>
                         </div>
                       </li>
                     ))}
@@ -320,6 +353,10 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
           );
         })}
       </div>
+
+      {festa && (
+        <EfeitoAniversario nome={festa.nome} diaMes={festa.diaMes} onFechar={() => setFesta(null)} />
+      )}
     </div>
   );
 }
