@@ -55,12 +55,12 @@ function iniciais(nome: string): string {
 function Foto({ nome, foto }: { nome: string; foto?: string }) {
   if (foto) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={foto} alt={nome} loading="lazy" className="h-12 w-12 shrink-0 rounded-full object-cover bg-[hsl(var(--border))]" />;
+    return <img src={foto} alt={nome} loading="lazy" className="h-16 w-16 shrink-0 rounded-full object-cover bg-[hsl(var(--border))]" />;
   }
   return (
     <div
       aria-label={nome}
-      className="h-12 w-12 shrink-0 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] flex items-center justify-center text-sm font-semibold"
+      className="h-16 w-16 shrink-0 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] flex items-center justify-center text-lg font-semibold"
     >
       {iniciais(nome)}
     </div>
@@ -296,13 +296,13 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
                     Ninguém escalado neste culto.
                   </p>
                 ) : (
-                  <ul className="p-4 space-y-3">
+                  <ul className="grid grid-cols-2 gap-x-3 gap-y-5 p-4">
                     {c.linhas.map((l) => (
-                      <li key={l.chave} className="flex items-center gap-3">
+                      <li key={l.chave} className="flex items-center gap-2.5 min-w-0">
                         <Foto nome={l.nome} foto={l.foto} />
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{l.nome}</p>
-                          <p className="text-sm text-[hsl(var(--muted))]">
+                          <p className="text-[17px] font-semibold leading-tight break-words">{l.nome}</p>
+                          <p className="mt-0.5 text-[15px] leading-tight text-[hsl(var(--muted))] break-words">
                             {l.instrumento.emoji} {l.instrumento.nome}
                           </p>
                         </div>
