@@ -133,7 +133,7 @@ export function HistoryView({
             {remotas.length === 0 ? (
               <Card>
                 <CardContent className="pt-6 text-sm text-[hsl(var(--muted))]">
-                  Nenhuma escala enviada ainda. Monte uma na aba Escala e use
+                  Nenhuma escala enviada ainda. Monte uma na aba Gerar escala e use
                   "Enviar para o líder".
                 </CardContent>
               </Card>

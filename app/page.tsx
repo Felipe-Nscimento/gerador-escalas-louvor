@@ -5,6 +5,7 @@ import {
   Users,
   SlidersHorizontal,
   CalendarDays,
+  CalendarPlus,
   History,
   Moon,
   Sun,
@@ -24,6 +25,7 @@ import {
   REGRAS_PADRAO,
 } from "@/lib/types";
 import { AniversariantesAviso } from "@/components/AniversariantesAviso";
+import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import { useAuth } from "@/lib/useAuth";
 import {
   assinarEscalasRemotas,
@@ -48,7 +50,7 @@ import { HistoryView } from "@/components/HistoryView";
 import { FormulariosManager } from "@/components/FormulariosManager";
 import { FormularioCadastro } from "@/lib/formularios";
 
-type Aba = "integrantes" | "instrumentos" | "formularios" | "config" | "escala" | "historico";
+type Aba = "principal" | "integrantes" | "instrumentos" | "formularios" | "config" | "escala" | "historico";
 
 const INTEGRANTES_INICIAIS: Integrante[] = [
   { id: uid(), nome: "Felipe", funcoes: ["voz", "violao"] },
@@ -71,16 +73,18 @@ const CONFIG_INICIAL: ConfiguracaoEscala = {
 };
 
 const ABAS: { id: Aba; label: string; icon: typeof Users }[] = [
+  { id: "principal", label: "Escala", icon: CalendarDays },
   { id: "integrantes", label: "Integrantes", icon: Users },
   { id: "instrumentos", label: "Instrumentos", icon: Music2 },
   { id: "formularios", label: "Formulários", icon: ClipboardList },
   { id: "config", label: "Configurações", icon: SlidersHorizontal },
-  { id: "escala", label: "Escala", icon: CalendarDays },
+  { id: "escala", label: "Gerar escala", icon: CalendarPlus },
   { id: "historico", label: "Histórico", icon: History },
 ];
 
 export default function Home() {
-  const [aba, setAba] = usePersistedState<Aba>("louvor:aba", "escala");
+  // A aba "Escala" (cards das escalas aprovadas) é a principal: o app sempre abre nela.
+  const [aba, setAba] = useState<Aba>("principal");
   const [integrantes, setIntegrantes, integrantesCarregados] =
     usePersistedState<Integrante[]>(KEYS.integrantes, INTEGRANTES_INICIAIS);
   const [instrumentos, setInstrumentos, instrumentosCarregados] = usePersistedState<Instrumento[]>(
@@ -371,6 +375,15 @@ export default function Home() {
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         {ehLiderOuMontador && <AniversariantesAviso integrantes={integrantesEfetivos} />}
+        {aba === "principal" && (
+          <EscalaPrincipal
+            integrantes={integrantesEfetivos}
+            instrumentos={instrumentosEfetivos}
+            historico={historico}
+            remotas={remotas}
+            logado={auth.logado}
+          />
+        )}
         {aba === "integrantes" && (
           <MembersManager
             integrantes={integrantesEfetivos}
