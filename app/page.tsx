@@ -7,9 +7,6 @@ import {
   CalendarDays,
   CalendarPlus,
   History,
-  Moon,
-  Sun,
-  Music,
   Music2,
   ClipboardList,
 } from "lucide-react";
@@ -26,6 +23,7 @@ import {
 } from "@/lib/types";
 import { AniversariantesAviso } from "@/components/AniversariantesAviso";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
+import { NavegacaoApp } from "@/components/NavegacaoApp";
 import { useAuth } from "@/lib/useAuth";
 import {
   assinarEscalasRemotas,
@@ -329,51 +327,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-[hsl(var(--card))] shadow-[0_4px_20px_rgba(0,0,0,0.07)] no-print">
-        <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-[hsl(var(--accent))]/15 flex items-center justify-center">
-              <Music className="h-4 w-4 text-[hsl(var(--accent))]" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold leading-tight">
-                Gerador de Escalas
-              </p>
-              <p className="text-xs text-[hsl(var(--muted))] leading-tight">
-                de Louvor
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
-            className="p-2 rounded-xl hover:bg-[hsl(var(--border))]/40"
-            aria-label="Alternar tema"
-          >
-            {tema === "claro" ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-        <nav className="max-w-3xl mx-auto px-4 pb-2 flex gap-1 overflow-x-auto">
-          {ABAS.filter(({ id }) => id !== "formularios" || mostrarAbaFormularios).map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setAba(id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
-                aba === id
-                  ? "bg-[hsl(var(--primary))] text-white"
-                  : "hover:bg-[hsl(var(--border))]/40 text-[hsl(var(--foreground))]"
-              }`}
-            >
-              <Icon className="h-4 w-4" /> {label}
-            </button>
-          ))}
-        </nav>
-      </header>
+      <NavegacaoApp
+        itens={ABAS.filter(({ id }) => id !== "formularios" || mostrarAbaFormularios)}
+        ativo={aba}
+        principais={["principal", "escala", "integrantes", "formularios"]}
+        onSelecionar={(id) => setAba(id as Aba)}
+        tema={tema}
+        onAlternarTema={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
+      />
 
-      <main className="max-w-3xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 pt-2 pb-28">
         {ehLiderOuMontador && <AniversariantesAviso integrantes={integrantesEfetivos} />}
         {aba === "principal" && (
           <EscalaPrincipal
