@@ -296,9 +296,14 @@ export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas,
                     Ninguém escalado neste culto.
                   </p>
                 ) : (
-                  <ul className="grid grid-cols-2 gap-x-3 gap-y-5 p-4">
-                    {c.linhas.map((l) => (
-                      <li key={l.chave} className="flex items-center gap-2.5 min-w-0">
+                  <ul className="grid grid-cols-2 gap-x-3 gap-y-4 p-4">
+                    {c.linhas.map((l, i) => (
+                      <li
+                        key={l.chave}
+                        // zigue-zague: uma pessoa por linha — 1ª à esquerda, 2ª à direita, 3ª à esquerda...
+                        style={{ gridRow: i + 1, gridColumn: i % 2 === 0 ? 1 : 2 }}
+                        className="flex items-center gap-2.5 min-w-0"
+                      >
                         <Foto nome={l.nome} foto={l.foto} />
                         <div className="min-w-0">
                           <p className="text-[17px] font-semibold leading-tight break-words">{l.nome}</p>
