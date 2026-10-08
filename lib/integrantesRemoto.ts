@@ -83,6 +83,9 @@ export async function listarIntegrantesRemotos(): Promise<Integrante[]> {
  * foi) — nunca deixa o banco gerar outro, pra escalas antigas (locais ou já
  * salvas no Supabase) que referenciam esse id continuarem funcionando.
  */
+/** Marca gravada em todo integrante criado por esta versão do app. */
+const ORIGEM_APP = "app-v2";
+
 export async function criarIntegranteRemoto(
   integrante: Integrante,
   userId: string
@@ -91,6 +94,9 @@ export async function criarIntegranteRemoto(
   const linha = {
     id: integrante.id,
     created_by: userId,
+    // O banco só aceita novos integrantes com esta marca (migration_integrantes_origem.sql):
+    // versões antigas do app, que recriavam cadastros apagados, passam a ser recusadas.
+    origem: ORIGEM_APP,
     ...integranteParaColunas(integrante),
   };
   const { data, error } = await supabase

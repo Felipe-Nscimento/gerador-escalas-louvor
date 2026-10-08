@@ -25,6 +25,7 @@ import { AniversariantesAviso } from "@/components/AniversariantesAviso";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import { NavegacaoApp } from "@/components/NavegacaoApp";
 import { useAuth } from "@/lib/useAuth";
+import { chaveMigracao, decidirMigracao, jaMigrou, marcarMigrou } from "@/lib/migracaoLocal";
 import {
   assinarEscalasRemotas,
   EscalaRemota,
@@ -32,7 +33,6 @@ import {
 } from "@/lib/escalasRemoto";
 import {
   assinarIntegrantesRemotos,
-  criarIntegranteRemoto,
   listarIntegrantesRemotos,
 } from "@/lib/integrantesRemoto";
 import {
@@ -129,7 +129,6 @@ export default function Home() {
   const [integrantesRemotos, setIntegrantesRemotos] = useState<Integrante[]>([]);
   const [integrantesRemotosCarregados, setIntegrantesRemotosCarregados] = useState(false);
   const [migracaoPronta, setMigracaoPronta] = useState(false);
-  const migracaoFeitaRef = useRef(false);
   const [instrumentosRemotos, setInstrumentosRemotos] = useState<Instrumento[]>([]);
   const [instrumentosRemotosCarregados, setInstrumentosRemotosCarregados] = useState(false);
   const [migracaoInstrumentosPronta, setMigracaoInstrumentosPronta] = useState(false);
@@ -165,7 +164,10 @@ export default function Home() {
         setIntegrantesRemotos(lista);
         setIntegrantesRemotosCarregados(true);
       })
-      .catch(() => setIntegrantesRemotosCarregados(true));
+      .catch(() => {
+        // Falha ao ler NÃO pode virar "lista vazia carregada": a migração reenviaria
+        // tudo o que está no aparelho e criaria duplicados. Segue com o cache local.
+      });
   }, [auth.logado]);
 
   useEffect(() => {
@@ -173,7 +175,6 @@ export default function Home() {
       setIntegrantesRemotos([]);
       setIntegrantesRemotosCarregados(false);
       setMigracaoPronta(false);
-      migracaoFeitaRef.current = false;
       return;
     }
     recarregarIntegrantesRemotos();
@@ -181,44 +182,13 @@ export default function Home() {
     return cancelar;
   }, [auth.logado, recarregarIntegrantesRemotos]);
 
-  // Migração controlada: roda uma vez por sessão logada. Só INSERE no
-  // Supabase os integrantes locais cujo id ainda não existe lá (nunca
-  // sobrescreve, nunca gera id novo) — preserva o id original pra escalas
-  // antigas (locais ou já salvas no Supabase) continuarem funcionando.
-  // Também confere por NOME: um aparelho que nunca teve dados salvos gera
-  // seus próprios ids aleatórios para os integrantes de exemplo, e sem essa
-  // checagem extra isso cria duplicados (mesma pessoa, id diferente) toda
-  // vez que um aparelho "novo" loga pela primeira vez.
+  // Com login, a nuvem é a ÚNICA fonte dos integrantes: o app NÃO reenvia mais para o
+  // Supabase o que está guardado no aparelho. Esse reenvio automático recriava
+  // cadastros apagados ou renomeados (e os exemplos do app) toda vez que um aparelho
+  // com dados antigos abria o app. Integrantes novos só entram pela tela de Integrantes.
   useEffect(() => {
-    if (
-      !auth.logado ||
-      !auth.userId ||
-      !integrantesCarregados ||
-      !integrantesRemotosCarregados ||
-      migracaoFeitaRef.current
-    ) {
-      return;
-    }
-    migracaoFeitaRef.current = true;
-    const idsRemotos = new Set(integrantesRemotos.map((i) => i.id));
-    const nomesRemotos = new Set(
-      integrantesRemotos.map((i) => i.nome.trim().toLowerCase())
-    );
-    const faltantes = integrantes.filter(
-      (i) => !idsRemotos.has(i.id) && !nomesRemotos.has(i.nome.trim().toLowerCase())
-    );
-    if (faltantes.length === 0) {
-      setMigracaoPronta(true);
-      return;
-    }
-    Promise.all(
-      faltantes.map((i) => criarIntegranteRemoto(i, auth.userId!).catch(() => null))
-    ).then(() => {
-      recarregarIntegrantesRemotos();
-      setMigracaoPronta(true);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.logado, auth.userId, integrantesCarregados, integrantesRemotosCarregados]);
+    if (auth.logado && integrantesRemotosCarregados) setMigracaoPronta(true);
+  }, [auth.logado, integrantesRemotosCarregados]);
 
   // Fonte oficial: Supabase quando disponível e a migração já rodou; até lá
   // (ou offline/deslogado), continua mostrando o cache local — evita um
@@ -235,7 +205,9 @@ export default function Home() {
         setInstrumentosRemotos(lista);
         setInstrumentosRemotosCarregados(true);
       })
-      .catch(() => setInstrumentosRemotosCarregados(true));
+      .catch(() => {
+        // mesma regra dos integrantes: falha ao ler não vira "lista vazia carregada"
+      });
   }, [auth.logado]);
 
   useEffect(() => {
@@ -266,6 +238,12 @@ export default function Home() {
       return;
     }
     migracaoInstrumentosFeitaRef.current = true;
+    const chave = chaveMigracao("instrumentos", auth.userId);
+    if (decidirMigracao(instrumentosRemotos.length, jaMigrou(chave)) === "pular") {
+      marcarMigrou(chave);
+      setMigracaoInstrumentosPronta(true);
+      return;
+    }
     const idsRemotos = new Set(instrumentosRemotos.map((i) => i.id));
     const nomesRemotos = new Set(
       instrumentosRemotos.map((i) => i.nome.trim().toLowerCase())
@@ -274,12 +252,14 @@ export default function Home() {
       (i) => !idsRemotos.has(i.id) && !nomesRemotos.has(i.nome.trim().toLowerCase())
     );
     if (faltantes.length === 0) {
+      marcarMigrou(chave);
       setMigracaoInstrumentosPronta(true);
       return;
     }
     Promise.all(
       faltantes.map((i) => criarInstrumentoRemoto(i, auth.userId!).catch(() => null))
     ).then(() => {
+      marcarMigrou(chave);
       recarregarInstrumentosRemotos();
       setMigracaoInstrumentosPronta(true);
     });

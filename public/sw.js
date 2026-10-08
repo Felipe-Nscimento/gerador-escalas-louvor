@@ -3,7 +3,7 @@
 // arquivos estáticos com hash no nome (que só mudam de nome quando o
 // conteúdo muda); tudo o mais busca da rede primeiro, e só cai no cache
 // se estiver realmente offline.
-const CACHE = "escalas-louvor-shell-v2";
+const CACHE = "escalas-louvor-shell-v3";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
