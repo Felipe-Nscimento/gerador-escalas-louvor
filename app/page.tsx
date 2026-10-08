@@ -24,6 +24,7 @@ import {
 import { AniversariantesAviso } from "@/components/AniversariantesAviso";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import { NavegacaoApp } from "@/components/NavegacaoApp";
+import { LinkAcessoIntegrantes } from "@/components/LinkAcessoIntegrantes";
 import { useAuth } from "@/lib/useAuth";
 import { chaveMigracao, decidirMigracao, jaMigrou, marcarMigrou } from "@/lib/migracaoLocal";
 import {
@@ -318,6 +319,7 @@ export default function Home() {
 
       <main className="max-w-3xl mx-auto px-4 pt-2 pb-28">
         {ehLiderOuMontador && <AniversariantesAviso integrantes={integrantesEfetivos} />}
+        {aba === "principal" && ehLiderOuMontador && <LinkAcessoIntegrantes />}
         {aba === "principal" && (
           <EscalaPrincipal
             integrantes={integrantesEfetivos}

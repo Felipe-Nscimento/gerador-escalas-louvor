@@ -16,6 +16,8 @@ interface Props {
   historico: EscalaSalva[];
   remotas: EscalaRemota[];
   logado: boolean;
+  /** Ordem das funções vinda de fora (página dos integrantes). Sem isso, usa a do aparelho/nuvem. */
+  ordemFuncoes?: string[] | null;
 }
 
 interface Linha {
@@ -74,8 +76,16 @@ function Foto({ nome, foto }: { nome: string; foto?: string }) {
  * (aprovada ou publicada), em carrossel paginado — arrasta o dedo para ir ao culto
  * anterior ou ao próximo. Abre no culto de hoje (ou no próximo; se não houver, no último).
  */
-export function EscalaPrincipal({ integrantes, instrumentos, historico, remotas, logado }: Props) {
-  const ordemFuncoes = useOrdemFuncoes(logado);
+export function EscalaPrincipal({
+  integrantes,
+  instrumentos,
+  historico,
+  remotas,
+  logado,
+  ordemFuncoes: ordemExterna,
+}: Props) {
+  const ordemLocal = useOrdemFuncoes(logado);
+  const ordemFuncoes = ordemExterna !== undefined ? ordemExterna : ordemLocal;
   const [hojeKey, setHojeKey] = useState<string | null>(null);
   const [atual, setAtual] = useState(0);
   const [festa, setFesta] = useState<{ nome: string; diaMes: string } | null>(null);
