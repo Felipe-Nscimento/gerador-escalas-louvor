@@ -40,6 +40,7 @@ import {
   atualizarIntegranteRemoto,
   criarIntegranteRemoto,
   excluirIntegranteRemoto,
+  mensagemErroSalvarIntegrante,
 } from "@/lib/integrantesRemoto";
 import { listarFormularios, marcarFormularioComoUtilizado } from "@/lib/formulariosRemoto";
 import {
@@ -567,10 +568,9 @@ export function MembersManager({
           await criarIntegranteRemoto(integranteCompleto, auth.userId!);
         }
         sincronizou = true;
-      } catch {
-        setErroSync(
-          "Não foi possível sincronizar esse integrante agora. Ele continua salvo neste aparelho."
-        );
+      } catch (e) {
+        console.error("Falha ao salvar integrante na nuvem:", e);
+        setErroSync(mensagemErroSalvarIntegrante(e));
       }
       // veio de um cadastro do Formulário: agora ele passa a "utilizado"
       if (sincronizou && formularioOrigem) {

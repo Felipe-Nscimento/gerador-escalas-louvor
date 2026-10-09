@@ -40,3 +40,7 @@ create policy "authenticated can insert integrantes"
 --   from public.integrantes
 --   order by lower(split_part(nome, ' ', 1)), created_at;
 -- ----------------------------------------------------------------------------------
+
+-- Faz o Supabase reconhecer a coluna nova imediatamente (sem isso, o app pode receber
+-- "Could not find the 'origem' column" até o cache do banco atualizar sozinho).
+notify pgrst, 'reload schema';

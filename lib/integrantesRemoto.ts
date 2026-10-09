@@ -83,6 +83,25 @@ export async function listarIntegrantesRemotos(): Promise<Integrante[]> {
  * foi) — nunca deixa o banco gerar outro, pra escalas antigas (locais ou já
  * salvas no Supabase) que referenciam esse id continuarem funcionando.
  */
+/**
+ * Mensagem para quando salvar um integrante na nuvem falha. Explica a causa mais provável
+ * (versão antiga do app, banco sem a migration) e mostra o código do erro para facilitar o suporte.
+ */
+export function mensagemErroSalvarIntegrante(e: unknown): string {
+  const erro = (e ?? {}) as { code?: string; message?: string };
+  const codigo = erro.code ?? "";
+  const texto = erro.message ?? "";
+  const base = "Não foi possível sincronizar esse integrante agora. Ele continua salvo neste aparelho.";
+  if (codigo === "42501" || /row-level security/i.test(texto)) {
+    return `${base} O banco recusou o cadastro: provavelmente este aparelho está com uma versão antiga do app. Feche e abra o app (ou atualize a página) e tente de novo. (código ${codigo || "RLS"})`;
+  }
+  if (codigo === "PGRST204" || /'origem'/.test(texto)) {
+    return `${base} O banco ainda não foi atualizado para esta versão: rode o arquivo supabase/migration_integrantes_origem.sql no SQL Editor do Supabase. (código ${codigo || "origem"})`;
+  }
+  if (!codigo && !texto) return base;
+  return `${base} (${(codigo || texto).slice(0, 80)})`;
+}
+
 /** Marca gravada em todo integrante criado por esta versão do app. */
 const ORIGEM_APP = "app-v2";
 
