@@ -1,0 +1,36 @@
+/**
+ * Mensagens de felicitação do bolo de aniversário (aba Escala).
+ * Cada aniversariante recebe uma frase diferente (veja indiceDaFrase em EscalaPrincipal).
+ */
+export const FRASES_ANIVERSARIO: string[] = [
+  "Que Deus abençoe a sua vida e que este novo ciclo seja cheio de alegria e paz.",
+  "Que o Senhor te guarde, te fortaleça e realize os desejos do seu coração.",
+  "Hoje celebramos a sua vida! Que a graça de Deus te acompanhe em cada passo deste novo ano.",
+  "Obrigado por servir com tanto amor. Que Deus multiplique as bênçãos sobre você!",
+  "Que cada dia deste novo ano seja marcado pela presença de Deus e por muitas conquistas.",
+  "Você é um presente de Deus para esta equipe. Que este dia seja muito especial!",
+  "Que a paz que excede todo entendimento guarde o seu coração hoje e sempre.",
+  "Louvamos a Deus pela sua vida! Que venham muitas alegrias, saúde e vitórias.",
+  "Que o Senhor renove as suas forças como as da águia e abençoe o seu novo ano.",
+  "Que o seu louvor continue agradando ao coração de Deus por muitos e muitos anos!",
+  "Deus tem planos lindos para você neste novo ciclo. Aproveite cada momento!",
+  "Que o seu aniversário seja cheio de amor, risadas e de pessoas queridas por perto.",
+  "Gratidão por ter você ao nosso lado no ministério. Que Deus te honre e te surpreenda!",
+  "Que a alegria do Senhor seja a sua força hoje e em todos os dias do ano.",
+  "Parabéns! Que Deus derrame sobre você saúde, sabedoria e muito favor.",
+  "Que cada oração sua seja respondida e cada sonho seja conduzido por Deus.",
+  "Mais um ano de vida, mais um ano de graça! Que seja o melhor de todos.",
+  "Que você seja cercado de carinho hoje e de bênçãos o ano inteiro.",
+  "A sua vida abençoa a nossa equipe. Que Deus abençoe você em dobro!",
+  "Que o Senhor te dê uma vida longa, cheia de paz, saúde e propósito.",
+  "Celebre com alegria: Deus foi fiel até aqui e continuará sendo!",
+  "Que o novo ano traga novos horizontes, novas conquistas e a companhia de Deus em tudo.",
+  "Hoje o céu também comemora a sua vida. Que dia abençoado!",
+  "Que o amor de Deus transborde no seu lar e a alegria não falte à sua mesa.",
+  "Que o seu coração continue cheio de fé, esperança e muito amor!",
+  "Feliz por caminhar com você! Que Deus te dê tudo o que for bom e perfeito.",
+  "Que a luz de Deus ilumine cada passo seu neste novo ciclo de vida.",
+  "Aproveite o seu dia! Você merece todo o carinho e toda a alegria do mundo.",
+  "Que Deus te conceda o que o seu coração deseja e o que você nem imaginou pedir.",
+  "Que a sua vida continue sendo uma linda canção de gratidão a Deus. Parabéns!",
+];

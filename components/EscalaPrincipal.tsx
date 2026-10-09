@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { EfeitoAniversario } from "@/components/EfeitoAniversario";
+import { FRASES_ANIVERSARIO } from "@/lib/frasesAniversario";
 import { EscalaRemota, payloadValido } from "@/lib/escalasRemoto";
 import { ordenarFuncoes } from "@/lib/ordemFuncoes";
 import { unificarItens } from "@/lib/scheduleGenerator";
@@ -88,7 +89,7 @@ export function EscalaPrincipal({
   const ordemFuncoes = ordemExterna !== undefined ? ordemExterna : ordemLocal;
   const [hojeKey, setHojeKey] = useState<string | null>(null);
   const [atual, setAtual] = useState(0);
-  const [festa, setFesta] = useState<{ nome: string; diaMes: string } | null>(null);
+  const [festa, setFesta] = useState<{ nome: string; diaMes: string; mensagem: string } | null>(null);
   const trilhoRef = useRef<HTMLDivElement>(null);
   const posicionadoRef = useRef(false);
 
@@ -216,6 +217,28 @@ export function EscalaPrincipal({
     posicionadoRef.current = true;
   }, [cards, hojeKey, indiceInicial]);
 
+  /**
+   * Frase de felicitação da pessoa. Quem faz aniversário no mesmo mês recebe frases
+   * diferentes entre si (posição da pessoa entre os aniversariantes do mês) e a mesma
+   * pessoa sempre recebe a mesma frase.
+   */
+  function fraseDaPessoa(pid: string, diaMes: string): string {
+    const mes = Number(diaMes.slice(3, 5));
+    const ids = integrantes
+      .filter(
+        (i) =>
+          i.ativo !== false &&
+          !!i.dataAniversario &&
+          /^\d{4}-\d{2}-\d{2}$/.test(i.dataAniversario) &&
+          Number(i.dataAniversario.slice(5, 7)) === mes
+      )
+      .map((i) => i.id)
+      .sort();
+    let base = ids.indexOf(pid);
+    if (base === -1) base = Array.from(pid).reduce((soma, ch) => soma + ch.charCodeAt(0), 0);
+    return FRASES_ANIVERSARIO[(base + mes * 7) % FRASES_ANIVERSARIO.length];
+  }
+
   function aoRolar() {
     const el = trilhoRef.current;
     if (!el || el.clientWidth === 0) return;
@@ -337,7 +360,7 @@ export function EscalaPrincipal({
                             {l.aniversario && (
                               <button
                                 type="button"
-                                onClick={() => setFesta({ nome: l.nome, diaMes: l.aniversario! })}
+                                onClick={() => setFesta({ nome: l.nome, diaMes: l.aniversario!, mensagem: fraseDaPessoa(l.chave, l.aniversario!) })}
                                 aria-label={`Aniversário de ${l.nome} em ${l.aniversario}. Toque para parabenizar`}
                                 title="Aniversariante do mês — toque para parabenizar"
                                 className="h-8 w-8 shrink-0 rounded-full bg-[hsl(var(--accent))]/15 text-lg leading-none flex items-center justify-center transition-transform active:scale-90 hover:scale-110"
@@ -365,7 +388,12 @@ export function EscalaPrincipal({
       </div>
 
       {festa && (
-        <EfeitoAniversario nome={festa.nome} diaMes={festa.diaMes} onFechar={() => setFesta(null)} />
+        <EfeitoAniversario
+          nome={festa.nome}
+          diaMes={festa.diaMes}
+          mensagem={festa.mensagem}
+          onFechar={() => setFesta(null)}
+        />
       )}
     </div>
   );

@@ -6,6 +6,8 @@ interface Props {
   nome: string;
   /** Aniversário em dd/mm (sem o ano). */
   diaMes: string;
+  /** Frase de felicitação (cada pessoa recebe uma diferente). */
+  mensagem: string;
   onFechar: () => void;
 }
 
@@ -50,7 +52,7 @@ function sortear<T>(lista: T[]): T {
  * Tela de parabéns: confetes caindo, rojões explodindo e a mensagem para o
  * aniversariante com a data (dd/mm). Fecha ao tocar, com Esc ou sozinha depois de alguns segundos.
  */
-export function EfeitoAniversario({ nome, diaMes, onFechar }: Props) {
+export function EfeitoAniversario({ nome, diaMes, mensagem, onFechar }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -232,9 +234,7 @@ export function EfeitoAniversario({ nome, diaMes, onFechar }: Props) {
         <p className="mt-2 inline-block rounded-full bg-[hsl(var(--accent))]/15 px-4 py-1 text-lg font-semibold text-[hsl(var(--accent))]">
           {diaMes}
         </p>
-        <p className="mt-3 text-[hsl(var(--muted))]">
-          Que Deus abençoe a sua vida e que este novo ciclo seja cheio de alegria e paz.
-        </p>
+        <p className="mt-3 text-[hsl(var(--muted))]">{mensagem}</p>
         <button
           type="button"
           onClick={onFechar}
