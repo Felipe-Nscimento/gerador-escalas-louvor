@@ -40,6 +40,7 @@ import {
   removerFotoDoStorage,
 } from "@/lib/formulariosRemoto";
 import { assinarInstrumentosRemotos, listarInstrumentosRemotos } from "@/lib/instrumentosRemoto";
+import { EVENTO_DADOS_ALTERADOS } from "@/lib/supabase";
 import {
   DIAS_VALIDADE_LINK,
   FormularioCadastro,
@@ -187,7 +188,14 @@ export function FormulariosManager({ auth, onUsarComoIntegrante }: Props) {
     recarregarInstrumentos();
     const cancelarForms = assinarFormularios(recarregar);
     const cancelarInst = assinarInstrumentosRemotos(recarregarInstrumentos);
+    // depois de qualquer alteração/exclusão bem-sucedida, recarrega na hora
+    function aoAlterar() {
+      recarregar();
+      recarregarInstrumentos();
+    }
+    window.addEventListener(EVENTO_DADOS_ALTERADOS, aoAlterar);
     return () => {
+      window.removeEventListener(EVENTO_DADOS_ALTERADOS, aoAlterar);
       cancelarForms();
       cancelarInst();
     };

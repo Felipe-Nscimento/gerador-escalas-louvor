@@ -26,6 +26,7 @@ import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import { NavegacaoApp } from "@/components/NavegacaoApp";
 import { LinkAcessoIntegrantes } from "@/components/LinkAcessoIntegrantes";
 import { useAuth } from "@/lib/useAuth";
+import { EVENTO_DADOS_ALTERADOS } from "@/lib/supabase";
 import { chaveMigracao, decidirMigracao, jaMigrou, marcarMigrou } from "@/lib/migracaoLocal";
 import {
   assinarEscalasRemotas,
@@ -75,10 +76,10 @@ const ABAS: { id: Aba; label: string; icon: typeof Users }[] = [
   { id: "principal", label: "Escala", icon: CalendarDays },
   { id: "integrantes", label: "Integrantes", icon: Users },
   { id: "instrumentos", label: "Instrumentos", icon: Music2 },
-  { id: "formularios", label: "Formulários", icon: ClipboardList },
-  { id: "config", label: "Configurações", icon: SlidersHorizontal },
   { id: "escala", label: "Gerar escala", icon: CalendarPlus },
   { id: "historico", label: "Histórico", icon: History },
+  { id: "config", label: "Configurações", icon: SlidersHorizontal },
+  { id: "formularios", label: "Formulários", icon: ClipboardList },
 ];
 
 export default function Home() {
@@ -199,6 +200,17 @@ export default function Home() {
       ? integrantesRemotos
       : integrantes;
 
+  // Depois de qualquer alteração ou exclusão bem-sucedida, recarrega as listas na hora.
+  // (O aviso vem de lib/supabase.ts; vale para todas as telas.)
+  const recarregarTudoRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    function aoAlterar() {
+      recarregarTudoRef.current();
+    }
+    window.addEventListener(EVENTO_DADOS_ALTERADOS, aoAlterar);
+    return () => window.removeEventListener(EVENTO_DADOS_ALTERADOS, aoAlterar);
+  }, []);
+
   const recarregarInstrumentosRemotos = useCallback(() => {
     if (!auth.logado) return;
     listarInstrumentosRemotos()
@@ -223,6 +235,14 @@ export default function Home() {
     const cancelar = assinarInstrumentosRemotos(recarregarInstrumentosRemotos);
     return cancelar;
   }, [auth.logado, recarregarInstrumentosRemotos]);
+
+  useEffect(() => {
+    recarregarTudoRef.current = () => {
+      recarregarRemotas();
+      recarregarIntegrantesRemotos();
+      recarregarInstrumentosRemotos();
+    };
+  }, [recarregarRemotas, recarregarIntegrantesRemotos, recarregarInstrumentosRemotos]);
 
   // Mesma migração controlada dos integrantes: só insere no Supabase os
   // instrumentos locais (inclusive os padrão) cujo id ainda não existe lá,
@@ -311,7 +331,7 @@ export default function Home() {
       <NavegacaoApp
         itens={ABAS.filter(({ id }) => id !== "formularios" || mostrarAbaFormularios)}
         ativo={aba}
-        principais={["principal", "escala", "integrantes", "formularios"]}
+        principais={["principal", "integrantes", "instrumentos", "escala"]}
         onSelecionar={(id) => setAba(id as Aba)}
         tema={tema}
         onAlternarTema={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
