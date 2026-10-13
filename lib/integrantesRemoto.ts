@@ -11,6 +11,7 @@ interface LinhaIntegrante {
   nome_exibicao: string | null;
   telefone: string | null;
   email: string | null;
+  perfil_acesso: string | null;
   instagram: string | null;
   endereco: string | null;
   data_aniversario: string | null;
@@ -31,6 +32,7 @@ function linhaParaIntegrante(l: LinhaIntegrante): Integrante {
     nomeExibicao: l.nome_exibicao ?? undefined,
     telefone: l.telefone ?? undefined,
     email: l.email ?? undefined,
+    perfilAcesso: l.perfil_acesso === "lider" || l.perfil_acesso === "montador" ? l.perfil_acesso : null,
     instagram: l.instagram ?? undefined,
     endereco: l.endereco ?? undefined,
     dataAniversario: l.data_aniversario ?? undefined,
@@ -52,6 +54,8 @@ function integranteParaColunas(patch: Partial<Integrante>): Record<string, unkno
   if (patch.nomeExibicao !== undefined) colunas.nome_exibicao = patch.nomeExibicao ?? null;
   if (patch.telefone !== undefined) colunas.telefone = patch.telefone ?? null;
   if (patch.email !== undefined) colunas.email = patch.email ?? null;
+  // só vai para o banco quando quem edita pode definir acessos (o banco também confere)
+  if (patch.perfilAcesso !== undefined) colunas.perfil_acesso = patch.perfilAcesso;
   if (patch.instagram !== undefined) colunas.instagram = patch.instagram || null;
   if (patch.endereco !== undefined) colunas.endereco = patch.endereco || null;
   if (patch.dataAniversario !== undefined) colunas.data_aniversario = patch.dataAniversario || null;
@@ -92,6 +96,7 @@ export function mensagemErroSalvarIntegrante(e: unknown): string {
   const codigo = erro.code ?? "";
   const texto = erro.message ?? "";
   const base = "Não foi possível sincronizar esse integrante agora. Ele continua salvo neste aparelho.";
+  if (/Somente o líder/i.test(texto)) return texto;
   if (codigo === "42501" || /row-level security/i.test(texto)) {
     return `${base} O banco recusou o cadastro: provavelmente este aparelho está com uma versão antiga do app. Feche e abra o app (ou atualize a página) e tente de novo. (código ${codigo || "RLS"})`;
   }

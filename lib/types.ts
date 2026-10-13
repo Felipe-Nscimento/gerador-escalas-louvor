@@ -109,6 +109,8 @@ export interface Integrante {
   nomeExibicao?: string;
   telefone?: string;
   email?: string;
+  /** Acesso ao app por login (e-mail acima): líder = completo, montador = limitado. null = sem acesso; undefined = não alterar. */
+  perfilAcesso?: "lider" | "montador" | null;
   instagram?: string; // sem "@" (vem do Formulário de Cadastro ou digitado)
   endereco?: string;
   dataAniversario?: string; // YYYY-MM-DD

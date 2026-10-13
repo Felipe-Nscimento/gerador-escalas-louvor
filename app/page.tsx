@@ -24,6 +24,8 @@ import {
 import { AniversariantesAviso } from "@/components/AniversariantesAviso";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import { NavegacaoApp } from "@/components/NavegacaoApp";
+import { TelaLogin, TelaSemAcesso } from "@/components/AcessoRestrito";
+import { useTema } from "@/lib/useTema";
 import { LinkAcessoIntegrantes } from "@/components/LinkAcessoIntegrantes";
 import { useAuth } from "@/lib/useAuth";
 import { EVENTO_DADOS_ALTERADOS } from "@/lib/supabase";
@@ -99,10 +101,7 @@ export default function Home() {
     KEYS.escalas,
     []
   );
-  const [tema, setTema] = usePersistedState<"claro" | "escuro">(
-    KEYS.tema,
-    "claro"
-  );
+  const { tema, alternarTema } = useTema();
   const [rascunho, setRascunho] = usePersistedState<RascunhoAtual>(
     KEYS.escalaAtual,
     RASCUNHO_VAZIO
@@ -135,10 +134,6 @@ export default function Home() {
   const [instrumentosRemotosCarregados, setInstrumentosRemotosCarregados] = useState(false);
   const [migracaoInstrumentosPronta, setMigracaoInstrumentosPronta] = useState(false);
   const migracaoInstrumentosFeitaRef = useRef(false);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", tema === "escuro");
-  }, [tema]);
 
   const recarregarRemotas = useCallback(() => {
     if (!auth.logado) return;
@@ -326,6 +321,20 @@ export default function Home() {
     return null;
   }
 
+  // Acesso por login: Líder e Montador entram com o e-mail cadastrado em Integrantes.
+  // (Sem Supabase configurado — por exemplo, em testes locais — o app continua em modo local.)
+  if (auth.supabaseConfigurado) {
+    if (auth.carregando || (auth.logado && !auth.acessoVerificado)) {
+      return <p className="p-10 text-center text-[hsl(var(--muted))]">Verificando seu acesso…</p>;
+    }
+    if (!auth.logado) {
+      return <TelaLogin tema={tema} onAlternarTema={alternarTema} />;
+    }
+    if (!auth.perfil) {
+      return <TelaSemAcesso email={auth.email} tema={tema} onAlternarTema={alternarTema} onSair={auth.sair} />;
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <NavegacaoApp
@@ -334,7 +343,7 @@ export default function Home() {
         principais={["principal", "integrantes", "instrumentos", "escala"]}
         onSelecionar={(id) => setAba(id as Aba)}
         tema={tema}
-        onAlternarTema={() => setTema((t) => (t === "claro" ? "escuro" : "claro"))}
+        onAlternarTema={alternarTema}
       />
 
       <main className="max-w-3xl mx-auto px-4 pt-2 pb-28">

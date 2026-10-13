@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { LogOut, Music } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { BotaoTema } from "@/components/BotaoTema";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
 import {
   DadosAcessoIntegrante,
@@ -17,6 +18,7 @@ import {
   salvarCredenciais,
 } from "@/lib/acessoIntegrante";
 import { EscalaSalva } from "@/lib/types";
+import { useTema } from "@/lib/useTema";
 
 /**
  * Página /escala: o integrante vê SOMENTE a aba Escala. Entra com o nome e, como senha,
@@ -31,6 +33,7 @@ export function EscalaIntegrante() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const { tema, alternarTema } = useTema();
 
   const carregar = useCallback(async (n: string, s: string, silencioso: boolean) => {
     const r = await entrarComoIntegrante(n, s);
@@ -104,6 +107,9 @@ export function EscalaIntegrante() {
   if (fase === "login" || !dados) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4 py-8">
+        <div className="fixed top-4 right-4">
+          <BotaoTema tema={tema} onClick={alternarTema} />
+        </div>
         <form
           onSubmit={entrar}
           className="w-full max-w-sm rounded-3xl bg-[hsl(var(--card))] p-6 shadow-sm space-y-4"
@@ -181,13 +187,16 @@ export function EscalaIntegrante() {
           <p className="text-sm text-[hsl(var(--muted))] leading-tight">Olá,</p>
           <p className="text-lg font-semibold leading-tight truncate">{dados.nome}</p>
         </div>
-        <button
-          type="button"
-          onClick={sair}
-          className="flex items-center gap-1.5 rounded-full bg-[hsl(var(--card))] px-4 py-2 text-sm font-semibold shadow-sm"
-        >
-          <LogOut className="h-4 w-4" /> Sair
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={sair}
+            className="flex h-11 items-center gap-1.5 rounded-full bg-[hsl(var(--card))] px-4 text-sm font-semibold shadow-sm"
+          >
+            <LogOut className="h-4 w-4" /> Sair
+          </button>
+          <BotaoTema tema={tema} onClick={alternarTema} />
+        </div>
       </header>
 
       {offline && (

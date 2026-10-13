@@ -160,6 +160,7 @@ export function MembersManager({
   const [nomeExibicao, setNomeExibicao] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
+  const [perfilAcesso, setPerfilAcesso] = useState<"" | "lider" | "montador">("");
   const [instagram, setInstagram] = useState("");
   const [endereco, setEndereco] = useState("");
   const [dataAniversario, setDataAniversario] = useState("");
@@ -188,6 +189,7 @@ export function MembersManager({
     setNomeExibicao("");
     setTelefone("");
     setEmail("");
+    setPerfilAcesso("");
     setInstagram("");
     setEndereco("");
     setDataAniversario("");
@@ -215,6 +217,7 @@ export function MembersManager({
     setNomeExibicao(pessoa.nomeExibicao ?? "");
     setTelefone(pessoa.telefone ?? "");
     setEmail(pessoa.email ?? "");
+    setPerfilAcesso(pessoa.perfilAcesso ?? "");
     setInstagram(pessoa.instagram ?? "");
     setEndereco(pessoa.endereco ?? "");
     setDataAniversario(pessoa.dataAniversario ?? "");
@@ -465,6 +468,9 @@ export function MembersManager({
     if (email.trim() && !EMAIL_REGEX.test(email.trim())) {
       return "E-mail inválido.";
     }
+    if (perfilAcesso && !email.trim()) {
+      return "Informe o e-mail de acesso de quem é Líder ou Montador (é com ele que a pessoa faz login).";
+    }
     if (!instagramValido(instagram)) {
       return "Instagram inválido. Use apenas letras, números, ponto e sublinhado.";
     }
@@ -515,6 +521,8 @@ export function MembersManager({
   }
 
   const podeOnline = auth.supabaseConfigurado && !!auth.userId;
+  // Só o Líder define quem tem acesso por login (o banco também confere). Sem Supabase (modo local), livre.
+  const podeDefinirAcesso = !auth.supabaseConfigurado || auth.ehLider;
 
   async function salvar() {
     const mensagem = validar();
@@ -532,6 +540,8 @@ export function MembersManager({
       nomeExibicao: nomeExibicao.trim() || undefined,
       telefone: telefone.trim() || undefined,
       email: email.trim() || undefined,
+      // só o líder define acessos; para os demais o campo nem é enviado (undefined = não alterar)
+      perfilAcesso: podeDefinirAcesso ? perfilAcesso || null : undefined,
       // "" (e não undefined) para que limpar o campo também limpe na nuvem
       instagram: normalizarInstagram(instagram) ?? "",
       endereco: endereco.trim(),
@@ -615,8 +625,11 @@ export function MembersManager({
     if (podeOnline) {
       try {
         await atualizarIntegranteRemoto(id, { ativo: novoValor });
-      } catch {
-        setErroSync("Não foi possível sincronizar essa mudança agora.");
+      } catch (e) {
+        const texto = (e as { message?: string } | null)?.message ?? "";
+        setErroSync(
+          /Somente o líder/i.test(texto) ? texto : "Não foi possível sincronizar essa mudança agora."
+        );
       }
     }
   }
@@ -788,6 +801,38 @@ export function MembersManager({
                   placeholder="nome@exemplo.com"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1.5 block" htmlFor="perfil-acesso">
+                Acesso ao app (login)
+              </label>
+              {podeDefinirAcesso ? (
+                <>
+                  <select
+                    id="perfil-acesso"
+                    value={perfilAcesso}
+                    onChange={(e) => setPerfilAcesso(e.target.value as "" | "lider" | "montador")}
+                    className="w-full rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2.5 text-sm"
+                  >
+                    <option value="">Sem acesso (só vê a escala em /escala)</option>
+                    <option value="montador">Montador — acesso limitado</option>
+                    <option value="lider">Líder — acesso completo</option>
+                  </select>
+                  <p className="mt-1 text-xs text-[hsl(var(--muted))]">
+                    A pessoa entra com o e-mail acima e a senha da conta dela. Para Líder e Montador, o e-mail é obrigatório.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-[hsl(var(--muted))]">
+                  {perfilAcesso === "lider"
+                    ? "Líder (acesso completo)"
+                    : perfilAcesso === "montador"
+                      ? "Montador (acesso limitado)"
+                      : "Sem acesso por login"}
+                  . Só o líder altera esse campo.
+                </p>
+              )}
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3">
@@ -1292,6 +1337,11 @@ export function MembersManager({
                     <div className="min-w-0">
                       <p className="font-medium truncate">
                         {p.nomeExibicao || p.nome}
+                        {p.perfilAcesso && (
+                          <span className="ml-2 align-middle rounded-full bg-[hsl(var(--primary))]/10 px-2 py-0.5 text-[11px] font-semibold text-[hsl(var(--primary))]">
+                            {p.perfilAcesso === "lider" ? "Líder" : "Montador"}
+                          </span>
+                        )}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         {p.funcoes.map((f) => (
