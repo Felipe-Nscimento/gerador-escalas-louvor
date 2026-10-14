@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { AvisosEquipe } from "@/components/AvisosEquipe";
 import { EfeitoAniversario } from "@/components/EfeitoAniversario";
+import { PlaylistCultoControle } from "@/components/PlaylistCultoControle";
+import { AvisoEquipe, chaveDoCulto, PlaylistCulto } from "@/lib/extrasEscalaRemoto";
 import { FRASES_ANIVERSARIO } from "@/lib/frasesAniversario";
 import { EscalaRemota, payloadValido } from "@/lib/escalasRemoto";
 import { ordenarFuncoes } from "@/lib/ordemFuncoes";
@@ -19,6 +22,16 @@ interface Props {
   logado: boolean;
   /** Ordem das funções vinda de fora (página dos integrantes). Sem isso, usa a do aparelho/nuvem. */
   ordemFuncoes?: string[] | null;
+  /** Links de playlist por culto e avisos extra culto (vêm do banco). */
+  playlists?: PlaylistCulto[];
+  avisos?: AvisoEquipe[];
+  /** Só para Líder e Montador: permite editar playlists e avisos. Sem isso, é só leitura. */
+  edicaoExtras?: {
+    salvarPlaylist: (data: string, culto: string, url: string) => Promise<void>;
+    removerPlaylist: (data: string, culto: string) => Promise<void>;
+    salvarAviso: (a: AvisoEquipe) => Promise<void>;
+    excluirAviso: (id: string) => Promise<void>;
+  };
 }
 
 interface Linha {
@@ -84,6 +97,9 @@ export function EscalaPrincipal({
   remotas,
   logado,
   ordemFuncoes: ordemExterna,
+  playlists = [],
+  avisos = [],
+  edicaoExtras,
 }: Props) {
   const ordemLocal = useOrdemFuncoes(logado);
   const ordemFuncoes = ordemExterna !== undefined ? ordemExterna : ordemLocal;
@@ -252,14 +268,25 @@ export function EscalaPrincipal({
     el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
   }
 
+  const playlistPorCulto = new Map(playlists.map((p) => [`${p.data.slice(0, 10)}|${p.culto}`, p.url]));
+  const blocoAvisos = (
+    <AvisosEquipe
+      avisos={avisos}
+      edicao={edicaoExtras ? { salvar: edicaoExtras.salvarAviso, excluir: edicaoExtras.excluirAviso } : undefined}
+    />
+  );
+
   if (cards.length === 0) {
     return (
+      <div className="space-y-4">
       <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8 text-center shadow-sm">
         <CalendarDays className="h-10 w-10 mx-auto mb-3 text-[hsl(var(--muted))]" />
         <p className="font-semibold">Nenhuma escala aprovada ainda</p>
         <p className="text-sm text-[hsl(var(--muted))] mt-1">
           Quando o líder aprovar uma escala, os cultos aparecem aqui.
         </p>
+      </div>
+      {blocoAvisos}
       </div>
     );
   }
@@ -338,6 +365,17 @@ export function EscalaPrincipal({
                       year: "numeric",
                     })}
                   </p>
+                  <PlaylistCultoControle
+                    url={playlistPorCulto.get(`${c.dataKey}|${chaveDoCulto(c.titulo)}`)}
+                    edicao={
+                      edicaoExtras
+                        ? {
+                            salvar: (url) => edicaoExtras.salvarPlaylist(c.dataKey, chaveDoCulto(c.titulo), url),
+                            remover: () => edicaoExtras.removerPlaylist(c.dataKey, chaveDoCulto(c.titulo)),
+                          }
+                        : undefined
+                    }
+                  />
                 </header>
 
                 {c.linhas.length === 0 ? (
@@ -386,6 +424,8 @@ export function EscalaPrincipal({
           );
         })}
       </div>
+
+      {blocoAvisos}
 
       {festa && (
         <EfeitoAniversario

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { AvisoEquipe, PlaylistCulto } from "./extrasEscalaRemoto";
 import { Instrumento, Integrante } from "./types";
 
 /** Escala já "enxuta" devolvida pelo banco: só datas, títulos e ids (sem dados pessoais). */
@@ -20,6 +21,8 @@ export interface DadosAcessoIntegrante {
   integrantes: Integrante[];
   instrumentos: Instrumento[];
   ordemFuncoes: string[] | null;
+  playlists: PlaylistCulto[];
+  avisos: AvisoEquipe[];
 }
 
 export type ResultadoAcesso =
@@ -59,6 +62,8 @@ export async function entrarComoIntegrante(nome: string, senha: string): Promise
       integrantes?: Integrante[];
       instrumentos?: Instrumento[];
       ordemFuncoes?: unknown;
+      playlists?: PlaylistCulto[];
+      avisos?: (Omit<AvisoEquipe, "local"> & { local?: string | null })[];
     };
     if (!r?.ok) return { ok: false, motivo: r?.motivo ?? "credenciais_invalidas" };
     const ordem = Array.isArray(r.ordemFuncoes)
@@ -72,6 +77,8 @@ export async function entrarComoIntegrante(nome: string, senha: string): Promise
         integrantes: r.integrantes ?? [],
         instrumentos: r.instrumentos ?? [],
         ordemFuncoes: ordem.length > 0 ? ordem : null,
+        playlists: r.playlists ?? [],
+        avisos: r.avisos ?? [],
       },
     };
   } catch {

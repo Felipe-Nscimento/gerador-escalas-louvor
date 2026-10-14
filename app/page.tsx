@@ -22,7 +22,7 @@ import {
   REGRAS_PADRAO,
 } from "@/lib/types";
 import { AniversariantesAviso } from "@/components/AniversariantesAviso";
-import { EscalaPrincipal } from "@/components/EscalaPrincipal";
+import { EscalaDaEquipe } from "@/components/EscalaDaEquipe";
 import { NavegacaoApp } from "@/components/NavegacaoApp";
 import { TelaLogin, TelaSemAcesso } from "@/components/AcessoRestrito";
 import { useTema } from "@/lib/useTema";
@@ -350,12 +350,14 @@ export default function Home() {
         {ehLiderOuMontador && <AniversariantesAviso integrantes={integrantesEfetivos} />}
         {aba === "principal" && ehLiderOuMontador && <LinkAcessoIntegrantes />}
         {aba === "principal" && (
-          <EscalaPrincipal
+          <EscalaDaEquipe
             integrantes={integrantesEfetivos}
             instrumentos={instrumentosEfetivos}
             historico={historico}
             remotas={remotas}
             logado={auth.logado}
+            podeEditar={auth.supabaseConfigurado && !!auth.perfil}
+            userId={auth.userId}
           />
         )}
         {aba === "integrantes" && (

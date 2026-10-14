@@ -212,6 +212,8 @@ export function EscalaIntegrante() {
         remotas={[]}
         logado={false}
         ordemFuncoes={dados.ordemFuncoes}
+        playlists={dados.playlists ?? []}
+        avisos={dados.avisos ?? []}
       />
     </main>
   );
