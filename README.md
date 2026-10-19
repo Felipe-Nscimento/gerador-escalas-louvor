@@ -105,6 +105,33 @@ preservando o id de cada um — o que os integrantes têm marcado em
 `funcoes` continua apontando pro instrumento certo. Sem essa tabela ou sem
 login, o cadastro de instrumentos continua 100% local.
 
+### Lembretes no celular (notificação push)
+
+Quem está escalado na semana recebe uma notificação no celular lembrando da escala e de estudar as
+músicas (e avisando se a playlist já está no app). O aviso é enviado **uma vez por culto**, todo dia
+às 8h (horário de Fortaleza), para quem está escalado de hoje até o domingo da semana.
+
+- **Integrantes** ativam em `/escala` (cartão "Lembretes no celular"). **Líder e Montador** ativam
+  na aba Escala do app (o e-mail do login precisa estar cadastrado em Integrantes).
+- **iPhone**: funciona só depois de "Adicionar à Tela de Início" (iOS 16.4 ou mais novo). No Android
+  funciona direto no Chrome.
+- Ao sair (`Sair`) em `/escala`, os lembretes são desligados naquele aparelho.
+
+Configuração (uma vez):
+
+1. No Supabase, rode `supabase/migration_lembretes_push.sql` e depois o `insert` do segredo que está
+   no final do arquivo (um texto aleatório de 32+ caracteres).
+2. Gere as chaves de envio: `npx web-push generate-vapid-keys`.
+3. Na Vercel (Settings → Environment Variables) cadastre, nos 3 ambientes:
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = chave pública gerada
+   - `VAPID_PRIVATE_KEY` = chave privada gerada (**nunca** coloque no código)
+   - `VAPID_SUBJECT` = `mailto:` + seu e-mail real
+   - `CRON_SECRET` = **o mesmo segredo** do passo 1
+4. Faça um novo deploy (as variáveis só valem depois dele). O agendamento diário está em `vercel.json`.
+5. Para testar sem enviar nada, abra no terminal:
+   `curl -H "Authorization: Bearer SEU_CRON_SECRET" "https://SEU-SITE.vercel.app/api/lembretes?simular=1"`
+   — mostra quem receberia e com qual texto.
+
 ### Instalar como aplicativo no celular
 
 O app tem um manifesto e funciona offline, então dá pra instalar como um app
