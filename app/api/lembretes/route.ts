@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 import { AssinaturaPush, ItemLembrete, processarLembretes } from "@/lib/lembretesPush";
 
@@ -15,6 +15,11 @@ function segredoConfere(recebido: string | null, esperado: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+// Ao colar valores na Vercel é comum ficar espaço sobrando ou vir entre aspas: limpa os dois.
+function limpar(valor: string | undefined): string | undefined {
+  return valor?.trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
 export async function GET(req: Request) {
   const segredo = process.env.CRON_SECRET;
   if (!segredo || !segredoConfere(req.headers.get("authorization"), segredo)) {
@@ -23,11 +28,11 @@ export async function GET(req: Request) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const vapidPublica = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivada = process.env.VAPID_PRIVATE_KEY;
+  const vapidPublica = limpar(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+  const vapidPrivada = limpar(process.env.VAPID_PRIVATE_KEY);
   // O "assunto" identifica quem envia. Os serviços de notificação (principalmente o da Apple, no
   // iPhone) podem recusar um e-mail de mentira, então ele é obrigatório: use o seu e-mail real.
-  const assunto = process.env.VAPID_SUBJECT;
+  const assunto = limpar(process.env.VAPID_SUBJECT);
   if (!supabaseUrl || !supabaseKey || !vapidPublica || !vapidPrivada || !assunto) {
     return Response.json(
       {
@@ -46,8 +51,25 @@ export async function GET(req: Request) {
   }
 
   const simular = new URL(req.url).searchParams.get("simular") === "1";
-  webpush.setVapidDetails(assunto, vapidPublica, vapidPrivada);
-  const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  // Se alguma chave estiver mal colada, a biblioteca lança erro aqui. Sem este tratamento a
+  // Vercel devolveria um 500 de corpo vazio, sem explicar nada.
+  let supabase: SupabaseClient;
+  try {
+    webpush.setVapidDetails(assunto, vapidPublica, vapidPrivada);
+    supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  } catch (e) {
+    const motivo = (e as { message?: string })?.message ?? "erro desconhecido";
+    return Response.json(
+      {
+        erro:
+          `Configuração inválida: ${motivo} ` +
+          'Confira NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY: use o par gerado por "npx web-push generate-vapid-keys" ' +
+          "(a pública em NEXT_PUBLIC_VAPID_PUBLIC_KEY e a privada em VAPID_PRIVATE_KEY, sem trocar), e confira NEXT_PUBLIC_SUPABASE_URL. " +
+          "Depois de corrigir, faça um novo deploy.",
+      },
+      { status: 500 }
+    );
+  }
 
   try {
     const resumo = await processarLembretes(
