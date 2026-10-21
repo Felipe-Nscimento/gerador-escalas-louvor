@@ -204,12 +204,6 @@ export function EscalaIntegrante() {
         </div>
       </header>
 
-      {lerCredenciais() && (
-        <LembretesPush
-          modo={{ tipo: "integrante", nome: lerCredenciais()!.nome, senha: lerCredenciais()!.senha }}
-        />
-      )}
-
       {offline && (
         <p className="mb-3 rounded-xl bg-amber-400/10 px-3 py-2 text-sm text-amber-600">
           Sem conexão. Mostrando a última escala salva neste aparelho.
@@ -225,6 +219,13 @@ export function EscalaIntegrante() {
         ordemFuncoes={dados.ordemFuncoes}
         playlists={dados.playlists ?? []}
         avisos={dados.avisos ?? []}
+        acoesCabecalho={
+          lerCredenciais() ? (
+            <LembretesPush
+              modo={{ tipo: "integrante", nome: lerCredenciais()!.nome, senha: lerCredenciais()!.senha }}
+            />
+          ) : undefined
+        }
       />
     </main>
   );

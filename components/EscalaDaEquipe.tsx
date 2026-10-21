@@ -2,6 +2,7 @@
 
 import { ComponentProps, useCallback, useEffect, useState } from "react";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
+import { LembretesPush } from "@/components/LembretesPush";
 import {
   AvisoEquipe,
   excluirAviso,
@@ -68,5 +69,13 @@ export function EscalaDaEquipe({ podeEditar, userId, ...resto }: Props) {
         }
       : undefined;
 
-  return <EscalaPrincipal {...resto} playlists={playlists} avisos={avisos} edicaoExtras={edicaoExtras} />;
+  return (
+    <EscalaPrincipal
+      {...resto}
+      playlists={playlists}
+      avisos={avisos}
+      edicaoExtras={edicaoExtras}
+      acoesCabecalho={podeEditar ? <LembretesPush modo={{ tipo: "equipe" }} /> : undefined}
+    />
+  );
 }

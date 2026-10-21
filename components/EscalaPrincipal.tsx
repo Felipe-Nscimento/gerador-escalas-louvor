@@ -25,6 +25,8 @@ interface Props {
   /** Links de playlist por culto e avisos extra culto (vêm do banco). */
   playlists?: PlaylistCulto[];
   avisos?: AvisoEquipe[];
+  /** Controles pequenos ao lado do título "Escala" (ex.: o sino dos lembretes). */
+  acoesCabecalho?: React.ReactNode;
   /** Só para Líder e Montador: permite editar playlists e avisos. Sem isso, é só leitura. */
   edicaoExtras?: {
     salvarPlaylist: (data: string, culto: string, url: string) => Promise<void>;
@@ -100,6 +102,7 @@ export function EscalaPrincipal({
   playlists = [],
   avisos = [],
   edicaoExtras,
+  acoesCabecalho,
 }: Props) {
   const ordemLocal = useOrdemFuncoes(logado);
   const ordemFuncoes = ordemExterna !== undefined ? ordemExterna : ordemLocal;
@@ -279,6 +282,12 @@ export function EscalaPrincipal({
   if (cards.length === 0) {
     return (
       <div className="space-y-4">
+        {acoesCabecalho && (
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-xl font-semibold">Escala</h2>
+            {acoesCabecalho}
+          </div>
+        )}
       <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-8 text-center shadow-sm">
         <CalendarDays className="h-10 w-10 mx-auto mb-3 text-[hsl(var(--muted))]" />
         <p className="font-semibold">Nenhuma escala aprovada ainda</p>
@@ -294,7 +303,10 @@ export function EscalaPrincipal({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">Escala</h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className="text-xl font-semibold">Escala</h2>
+          {acoesCabecalho}
+        </div>
         <div className="flex items-center gap-1">
           {indiceInicial !== atual && (
             <button
