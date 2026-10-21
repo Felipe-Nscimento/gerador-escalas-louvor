@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { BotaoTema } from "@/components/BotaoTema";
 import { EscalaPrincipal } from "@/components/EscalaPrincipal";
+import { LembretesPush } from "@/components/LembretesPush";
 import {
   DadosAcessoIntegrante,
   entrarComoIntegrante,
@@ -17,6 +18,7 @@ import {
   salvarCache,
   salvarCredenciais,
 } from "@/lib/acessoIntegrante";
+import { cancelarLembretesSilencioso } from "@/lib/notificacoes";
 import { EscalaSalva } from "@/lib/types";
 import { useTema } from "@/lib/useTema";
 
@@ -93,6 +95,9 @@ export function EscalaIntegrante() {
   }
 
   function sair() {
+    // ao sair, este aparelho deixa de receber os lembretes dessa pessoa
+    const salvas = lerCredenciais();
+    if (salvas) cancelarLembretesSilencioso({ tipo: "integrante", nome: salvas.nome, senha: salvas.senha });
     sairDoAcesso();
     setDados(null);
     setSenha("");
@@ -198,6 +203,12 @@ export function EscalaIntegrante() {
           <BotaoTema tema={tema} onClick={alternarTema} />
         </div>
       </header>
+
+      {lerCredenciais() && (
+        <LembretesPush
+          modo={{ tipo: "integrante", nome: lerCredenciais()!.nome, senha: lerCredenciais()!.senha }}
+        />
+      )}
 
       {offline && (
         <p className="mb-3 rounded-xl bg-amber-400/10 px-3 py-2 text-sm text-amber-600">
